@@ -1,4 +1,6 @@
 from contextlib import contextmanager
+from unittest import mock
+
 import pytest
 import unittest
 import yaml
@@ -6,7 +8,10 @@ import yaml
 from dbt.clients.jinja import get_rendered
 from dbt.clients.jinja import get_template
 from dbt.clients.jinja import extract_toplevel_blocks
+from dbt.context import providers
+from dbt.context.base import BaseContext
 from dbt.exceptions import CompilationException, JinjaRenderingException
+from unit.test_context import mock_model, config_postgres, manifest_fx
 
 
 @contextmanager
@@ -392,6 +397,13 @@ class TestJinja(unittest.TestCase):
 
         template = get_template(s, {})
         mod = template.make_module()
+        sd = BaseContext({})
+        sdf = providers.generate_parser_model_context(
+            model=mock_model(),
+            config=config_postgres,
+            manifest=manifest_fx,
+            context_config=mock.MagicMock(),
+        )
         self.assertEqual(mod.my_dict, {'a': 1})
 
     def test_regular_render(self):
