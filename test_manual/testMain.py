@@ -25,10 +25,10 @@ def inject_adapter(value, plugin):
     FACTORY.adapters[key] = value
 
 
-
 def empty_profile_renderer():
     import dbt
     return dbt.config.renderer.ProfileRenderer({})
+
 
 def normalize(path):
     """On windows, neither is enough on its own:
@@ -267,7 +267,7 @@ if __name__ == '__main__':
                 original_file_path='view.sql',
                 language='sql',
                 # raw_code="",
-                raw_code='''{% set payment_methods = ['credit_card', 'coupon', 'bank_transfer', 'gift_card', 1] %} {% set my_abc = 'abc' %} with cte as (select * from something_else) select *, {{var("test_var")}},{% for payment_method in payment_methods -%} sum(case when payment_method = '{{ payment_method }}' then amount else 0 end) as {{ payment_method }}_amount,         {% endfor -%} {{my_abc}},         {{payment_methods}}, last_name from {{ref("ephemeral")}}''',
+                raw_code='''''',
                 checksum=FileHash.from_contents(''),
             ),
             # 'model.root.ephemeral': ParsedModelNode(
@@ -305,6 +305,8 @@ if __name__ == '__main__':
     from dbt.context.context_config import ContextConfig
 
     contextCreation = time.time()
+    config.vars.vars = {'test_var': 'test_var_value_wefe', 'payment_methods': ['var_value_1', 'var_value_2']}
+    # config.vars =
     # newConfig = config_from_parts_or_dicts(self.project_cfg, self.profile_cfg)
     ret = generate_parser_model_context(manifest.nodes['test'], config, manifest, ContextConfig(
         config,
@@ -366,8 +368,9 @@ if __name__ == '__main__':
         updated_date="2022-04-04"
     ) }}"""
 
-    newVal = get_template(query, ret, capture_macros=False).make_module(vars={'test_var': 'test_var_value_wefe'})
+    newVal = get_template(query, ret,
+                          capture_macros=False).module  # .make_module(vars={'test_var': 'test_var_value_wefe'})
     end2 = time.time()
     print(f"Total time ({end2 - begin})")
-    print(f"Total time since macroEnd ({end2 - macrosLoadEnd})")
+    print(f"Total time since contextCreation ({end2 - contextCreation})")
     print(newVal)
