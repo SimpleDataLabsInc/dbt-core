@@ -47,22 +47,22 @@ class CompilerTest(unittest.TestCase):
         }
         profile_cfg = {
             'outputs': {
-                # 'test': {
-                #     'type': 'postgres',
-                #     'dbname': 'postgres',
-                #     'user': 'root',
-                #     'host': 'localhost',
-                #     'pass': 'password',
-                #     'port': 5432,
-                #     'schema': 'public'
-                # }
                 'test': {
-                    'type': 'bigquery',
-                    'method': 'service-account',
-                    'project': 'prophecy-development',
-                    'keyfile': '/tmp/doesnt_exist.json',
-                    'dataset': 'dataset'
+                    'type': 'postgres',
+                    'dbname': 'postgres',
+                    'user': 'root',
+                    'host': 'localhost',
+                    'pass': 'password',
+                    'port': 5432,
+                    'schema': 'public'
                 }
+                # 'test': {
+                #     'type': 'bigquery',
+                #     'method': 'service-account',
+                #     'project': 'prophecy-development',
+                #     'keyfile': '/tmp/doesnt_exist.json',
+                #     'dataset': 'dataset'
+                # }
             },
             'target': 'test'
         }
@@ -184,33 +184,33 @@ class CompilerTest(unittest.TestCase):
                     config=self.model_config,
                     path='view.sql',
                     original_file_path='view.sql',
-                    # language='sql',
+                    language='sql',
                     # raw_code="",
-                    raw_sql='''{% set payment_methods = ['credit_card', 'coupon', 'bank_transfer', 'gift_card', 1] %} {% set my_abc = 'abc' %} with cte as (select * from something_else) select *, {{var("test_var")}},{% for payment_method in payment_methods -%} sum(case when payment_method = '{{ payment_method }}' then amount else 0 end) as {{ payment_method }}_amount,         {% endfor -%} {{my_abc}},         {{payment_methods}}, last_name from {{ref("ephemeral")}}''',
+                    raw_code='''{% set payment_methods = ['credit_card', 'coupon', 'bank_transfer', 'gift_card', 1] %} {% set my_abc = 'abc' %} with cte as (select * from something_else) select *, {{var("test_var")}},{% for payment_method in payment_methods -%} sum(case when payment_method = '{{ payment_method }}' then amount else 0 end) as {{ payment_method }}_amount,         {% endfor -%} {{my_abc}},         {{payment_methods}}, last_name from {{ref("ephemeral")}}''',
                     checksum=FileHash.from_contents(''),
                 ),
-                'model.root.ephemeral': ParsedModelNode(
-                    name='ephemeral',
-                    database='dbt',
-                    schema='analytics',
-                    alias='view',
-                    resource_type=NodeType.Model,
-                    unique_id='model.root.ephemeral',
-                    fqn=['root', 'ephemeral'],
-                    package_name='root',
-                    root_path='/usr/src/app',
-                    config=ephemeral_config,
-                    path='ephemeral.sql',
-                    original_file_path='ephemeral.sql',
-                    # language='sql',
-                    # raw_code='select * from source_table',
-                    raw_sql='',
-                    path='stg_payments.sql',
-                    original_file_path='stg_payments.sql',
-                    raw_sql='''select 1''',
-                    checksum=FileHash.from_contents(''),
-                    # depends_on=MacroDependsOn(),
-                ),
+                # 'model.root.ephemeral': ParsedModelNode(
+                #     name='ephemeral',
+                #     database='dbt',
+                #     schema='analytics',
+                #     alias='view',
+                #     resource_type=NodeType.Model,
+                #     unique_id='model.root.ephemeral',
+                #     fqn=['root', 'ephemeral'],
+                #     package_name='root',
+                #     root_path='/usr/src/app',
+                #     config=ephemeral_config,
+                #     path='ephemeral.sql',
+                #     original_file_path='ephemeral.sql',
+                #     # language='sql',
+                #     # raw_code='select * from source_table',
+                #     raw_sql='',
+                #     path='stg_payments.sql',
+                #     original_file_path='stg_payments.sql',
+                #     # raw_sql='''select 1''',
+                #     checksum=FileHash.from_contents(''),
+                #     # depends_on=MacroDependsOn(),
+                # ),
             },
             sources={},
             docs={},
