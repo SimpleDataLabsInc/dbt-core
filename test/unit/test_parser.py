@@ -1036,6 +1036,44 @@ class SingularTestParserTest(BaseParserTest):
         assertEqualNodes(node, expected)
         file_id = 'snowplow://' + normalize('tests/test_1.sql')
         self.assertIn(file_id, self.parser.manifest.files)
+        # Sample to run - get_template('''  {% set payment_methods = ['credit_card', 'coupon', 'bank_transfer', 'gift_card', 1] %}  {% set my_abc = 'abc' %}  with orders as (      select * from {{ 'stg_orders' }}  ),  payments as (      select * from {{ 'stg_payments' }}  ),  order_payments as (      select         order_id,         {{my_abc}},         {{payment_methods}},         {% for payment_method in payment_methods -%}         sum(case when payment_method = '{{ payment_method }}' then amount else 0 end) as {{ payment_method }}_amount,         {% endfor -%}          sum(amount) as total_amount      from payments      group by order_id  ),  final as (      select         orders.order_id,         orders.customer_id,         orders.order_date,         orders.status,          {% for payment_method in payment_methods -%}          order_payments.{{ payment_method }}_amount,          {% endfor -%}          order_payments.total_amount as amount      from orders       left join order_payments         on orders.order_id = order_payments.order_id  )  select * from final ''', BaseContext({}).to_dict()).make_module()
+        from dbt.clients.jinja import get_template
+        from dbt.context.base import BaseContext
+        query = '''
+{% set payment_methods = ['credit_card', 'coupon', 'bank_transfer', 'gift_card', 1] %}
+{% set my_abc = 'abc' %}
+with 
+    orders as (      select * from {{ 'stg_orders' }}  ),  
+    payments as (      select * from {{ 'stg_payments' }}  ),  
+    order_payments as (      
+        select     
+            order_id,
+            {{my_abc}},
+            {{payment_methods}},
+            {% for payment_method in payment_methods -%}    
+                 sum(case when payment_method = '{{ payment_method }}' then amount else 0 end) as {{ payment_method }}_amount,
+            {% endfor -%}
+            sum(amount) as total_amount
+        from payments      
+        group by order_id  
+    ),  
+    final as (      
+        select     
+            orders.order_id,         
+            orders.customer_id,         
+            orders.order_date,         
+            orders.status,          
+            {% for payment_method in payment_methods -%}    
+                  order_payments.{{ payment_method }}_amount,
+            {% endfor -%}          
+            order_payments.total_amount as amount      
+        from orders       
+        left join order_payments     
+            on orders.order_id = order_payments.order_id  
+    )  
+select * from final '''
+        test = get_template(query, BaseContext({}).to_dict()).make_module()
+        print(test)
         self.assertEqual(self.parser.manifest.files[file_id].nodes, ['test.snowplow.test_1'])
 
 
