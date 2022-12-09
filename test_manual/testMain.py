@@ -1,5 +1,7 @@
 import os
 
+os.environ["DBT_PROFILES_DIR"] = "/tmp/dbt_profiles/"
+
 import dbt
 from dbt.contracts.files import FileHash
 from dbt.contracts.graph.manifest import Manifest
@@ -8,6 +10,9 @@ from dbt.config.project import PartialProject
 from dbt.contracts.graph.parsed import ParsedMacro, ParsedModelNode
 from dbt.node_types import NodeType
 
+
+def get_abs_os_path(unix_path):
+    return normalize(os.path.abspath(unix_path))
 
 def inject_plugin(plugin):
     from dbt.adapters.factory import FACTORY
@@ -26,7 +31,6 @@ def inject_adapter(value, plugin):
 
 
 def empty_profile_renderer():
-    import dbt
     return dbt.config.renderer.ProfileRenderer({})
 
 
@@ -119,7 +123,6 @@ def config_from_parts_or_dicts(project, profile, packages=None, selectors=None, 
         args=args
     )
 
-
 if __name__ == '__main__':
     model_config = NodeConfig.from_dict({
         'enabled': True,
@@ -137,7 +140,7 @@ if __name__ == '__main__':
         'name': 'prophecy_package',
         'version': '0.1',
         'profile': 'test',
-        'project-root': '/Users/kishore/prophecy-git/jaffle_shop',
+        'project-root': '/tmp/dummy_dbt/',
         'config-version': 2,
         'vars': {
             'test_var': 'test_var_value',
@@ -184,7 +187,6 @@ if __name__ == '__main__':
     macrosLoadBegin = time.time()
     loadedMacros = ManifestLoader.load_macros(config, macro_hook)
     macrosLoadEnd = time.time()
-    from unit.test_parser import get_abs_os_path
 
     macro_root_dbt_audit = 'dbt_audit'
     customMacro = ParsedMacro(
@@ -253,15 +255,15 @@ if __name__ == '__main__':
         macros=loadedMacros.macros | customMacros,
         nodes={
             'test': ParsedModelNode(
-                name='stg_payments',
+                name='test',
                 database='dbt',
-                schema='analytics',
-                alias='stg_payments',
+                schema='prophecy',
+                alias='test',
                 resource_type=NodeType.Model,
-                unique_id='stg_payments',
-                fqn=['stg_payments'],
+                unique_id='test',
+                fqn=['test'],
                 package_name='prophecy_package',
-                root_path='/usr/src/app',
+                root_path='/usr/kishore/app',
                 config=model_config,
                 path='view.sql',
                 original_file_path='view.sql',
@@ -301,13 +303,13 @@ if __name__ == '__main__':
         metrics={},
         selectors={},
     )
-    from dbt.context.providers import generate_parser_model_context
-    from dbt.context.context_config import ContextConfig
 
     contextCreation = time.time()
     config.vars.vars = {'test_var': 'test_var_value_wefe', 'payment_methods': ['var_value_1', 'var_value_2']}
     # config.vars =
     # newConfig = config_from_parts_or_dicts(self.project_cfg, self.profile_cfg)
+    from dbt.context.providers import generate_parser_model_context
+    from dbt.context.context_config import ContextConfig
     ret = generate_parser_model_context(manifest.nodes['test'], config, manifest, ContextConfig(
         config,
         manifest.nodes['test'].fqn,
@@ -372,5 +374,80 @@ if __name__ == '__main__':
                           capture_macros=False).module  # .make_module(vars={'test_var': 'test_var_value_wefe'})
     end2 = time.time()
     print(f"Total time ({end2 - begin})")
-    print(f"Total time since contextCreation ({end2 - contextCreation})")
+    print(f"Total time since contextCreation ({end2 - contextCreation})") # Total time since contextCreation (0.009350776672363281)
+    print(newVal)
+
+
+
+
+
+    contextCreation = time.time()
+    import copy
+    config = copy.deepcopy(config)
+    config.vars.vars = {'test_var': 'test_var_value_wefefefrf', 'payment_methods': ['new_var_value_1', 'new_var_value_2']}
+    # config.vars =
+    # newConfig = config_from_parts_or_dicts(self.project_cfg, self.profile_cfg)
+    ret = generate_parser_model_context(manifest.nodes['test'], config, manifest, ContextConfig(
+        config,
+        manifest.nodes['test'].fqn,
+        manifest.nodes['test'].resource_type,
+        "root",
+    ))
+
+    from dbt.clients.jinja import get_template
+
+    end1 = time.time()
+    print(f"Total time in contextCreation ({end1 - contextCreation})")
+    query = """
+    {{ config({         
+        "materialized": "incremental",         
+        "unique_key": "order_id",         
+        "tags": ["orders_snapshots"],         
+        "alias": "orders"     
+        }) 
+    }} 
+    {% set payment_methods = ['credit_card', 'coupon', 'bank_transfer', 'gift_card', 1] %}  
+    {% set my_abc = 'abc' %}  
+    with orders as ( select *, {{var('test_var')}} from {{ ref('stg_orders') }}  ), 
+    payments as (      select * from {{ ref('stg_payments') }}  ),  
+    order_payments as (
+        select     
+            order_id,
+            {{my_abc}},        
+            {{payment_methods}},        
+            {% for payment_method in payment_methods -%}     
+                sum(case when payment_method = '{{ payment_method }}' then amount else 0 end) as {{ payment_method }}_amount,         
+            {% endfor -%}
+            {% for value in ['val1', 'val2', 'val3'] %}
+        last_name_{{value}},
+        {% endfor %}
+        {% if new_var is not defined %}
+        sum(amount) as amounts,
+        {% endif %}
+        {% if new_var is defined %}
+        sum(amount) as dont_exist_amounts,
+        {% endif %}
+            sum(amount) as total_amount      
+        from payments      
+        group by order_id  
+        
+        {{ var('myvar') }}
+    ) 
+    {% if is_incremental() %}    -- this filter will only be applied on an incremental run   
+        where order_date > (select max(order_date) from {{ this }})  
+    {% endif %}
+    {{ dbt_utils.group_by(2) }}
+    {{ dbt_audit(
+        cte_ref="final",
+        created_by="@kishore",
+        updated_by="@bandi",
+        created_date="2021-06-02",
+        updated_date="2022-04-04"
+    ) }}"""
+
+    newVal = get_template(query, ret,
+                          capture_macros=False).module  # .make_module(vars={'test_var': 'test_var_value_wefe'})
+    end2 = time.time()
+    print(f"Total time ({end2 - begin})")
+    print(f"Total time since contextCreation ({end2 - contextCreation})") # Total time since contextCreation (0.0034101009368896484)
     print(newVal)
