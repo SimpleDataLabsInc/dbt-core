@@ -14,6 +14,7 @@ from dbt.node_types import NodeType
 def get_abs_os_path(unix_path):
     return normalize(os.path.abspath(unix_path))
 
+
 def inject_plugin(plugin):
     from dbt.adapters.factory import FACTORY
     key = plugin.adapter.type()
@@ -123,6 +124,7 @@ def config_from_parts_or_dicts(project, profile, packages=None, selectors=None, 
         args=args
     )
 
+
 if __name__ == '__main__':
     model_config = NodeConfig.from_dict({
         'enabled': True,
@@ -197,7 +199,7 @@ if __name__ == '__main__':
         original_file_path=normalize('/tmp/macro.sql'),
         root_path=get_abs_os_path('/tmp/snowplow'),
         path=normalize('macros/macro.sql'),
-        macro_sql='''{%- macro dbt_audit(cte_ref, created_by, updated_by, created_date, updated_date) -%}
+        macro_sql='''{%- macro dbt_audit(cte_ref, created_by, updated_by, created_date, updated_date)-%}
     
         SELECT
           *,
@@ -310,6 +312,7 @@ if __name__ == '__main__':
     # newConfig = config_from_parts_or_dicts(self.project_cfg, self.profile_cfg)
     from dbt.context.providers import generate_parser_model_context
     from dbt.context.context_config import ContextConfig
+
     ret = generate_parser_model_context(manifest.nodes['test'], config, manifest, ContextConfig(
         config,
         manifest.nodes['test'].fqn,
@@ -322,46 +325,6 @@ if __name__ == '__main__':
     end1 = time.time()
     print(f"Total time in contextCreation ({end1 - contextCreation})")
     query = """
-    {{ config({         
-        "materialized": "incremental",         
-        "unique_key": "order_id",         
-        "tags": ["orders_snapshots"],         
-        "alias": "orders"     
-        }) 
-    }} 
-    {% set payment_methods = ['credit_card', 'coupon', 'bank_transfer', 'gift_card', 1] %}  
-    {% set my_abc = 'abc' %}  
-    with orders as ( select *, {{var('test_var')}} from {{ ref('stg_orders') }}  ), 
-    payments as (      select * from {{ ref('stg_payments') }}  ),  
-    order_payments as (
-        select     
-            order_id,
-            {{my_abc}},        
-            {{payment_methods}},        
-            {% for payment_method in payment_methods -%}     
-                sum(case when payment_method = '{{ payment_method }}' then amount else 0 end) as {{ payment_method }}_amount,         
-            {% endfor -%}          
-            sum(amount) as total_amount      
-        from payments      
-        group by order_id  
-    ),  
-    final as (      
-        select    
-             orders.order_id,         
-             orders.customer_id,         
-             orders.order_date,         
-             orders.status,          
-             {% for payment_method in var("payment_methods") -%}     
-                  order_payments.{{ payment_method }}_amount,          
-             {% endfor -%}          
-             order_payments.total_amount as amount      
-        from orders       left join order_payments         on orders.order_id = order_payments.order_id  
-    )  
-    select * from final 
-    {% if is_incremental() %}    -- this filter will only be applied on an incremental run   
-        where order_date > (select max(order_date) from {{ this }})  
-    {% endif %}
-    {{ dbt_utils.group_by(2) }}
     {{ dbt_audit(
         cte_ref="final",
         created_by="@kishore",
@@ -374,80 +337,110 @@ if __name__ == '__main__':
                           capture_macros=False).module  # .make_module(vars={'test_var': 'test_var_value_wefe'})
     end2 = time.time()
     print(f"Total time ({end2 - begin})")
-    print(f"Total time since contextCreation ({end2 - contextCreation})") # Total time since contextCreation (0.009350776672363281)
+    print(
+        f"Total time since contextCreation ({end2 - contextCreation})")  # Total time since contextCreation (0.009350776672363281)
     print(newVal)
 
 
+def sql_macro_analyzer_X6TT5gZh_7(query: str):
+    from dbt.context.providers import generate_parser_model_context
+    from dbt.context.context_config import ContextConfig
 
+    compile_macro_root = 'my_audit'
+    customCompileMacro = ParsedMacro(
+        name=compile_macro_root,
+        resource_type=NodeType.Macro,
+        unique_id=compile_macro_root,
+        package_name='prophecy_package',
+        original_file_path=normalize('macros/my_audit.sql'),
+        root_path=get_abs_os_path('/tmp/prophecy'),
+        path=normalize('macros/my_audit.sql'),
+        macro_sql='''{%- macro my_audit(cte_ref, created_by, updated_by, created_date, updated_date)-%}
 
+        SELECT
+          *,
+          '{{ created_by }}'::VARCHAR       AS created_by,
+          '{{ updated_by }}'::VARCHAR       AS updated_by,
+          '{{ created_date }}'::DATE        AS model_created_date,
+          '{{ updated_date }}'::DATE        AS model_updated_date,
+          CURRENT_TIMESTAMP()               AS dbt_updated_at,
 
-    contextCreation = time.time()
+        {% if execute %}
+
+            {% if not flags.FULL_REFRESH and config.get('materialized') == "incremental" %}
+
+                {%- set source_relation = adapter.get_relation(
+                    database=target.database,
+                    schema=this.schema,
+                    identifier=this.table,
+                    ) -%}
+
+                {% if source_relation != None %}
+
+                    {% set min_created_date %}
+                        SELECT LEAST(MIN(dbt_created_at), CURRENT_TIMESTAMP()) AS min_ts
+                        FROM {{ this }}
+                    {% endset %}
+
+                    {% set results = run_query(min_created_date) %}
+
+                    '{{results.columns[0].values()[0]}}'::TIMESTAMP AS dbt_created_at
+
+                {% else %}
+
+                    CURRENT_TIMESTAMP()               AS dbt_created_at
+
+                {% endif %}
+
+            {% else %}
+
+                CURRENT_TIMESTAMP()               AS dbt_created_at
+
+            {% endif %}
+
+        {% endif %}
+
+        FROM {{ cte_ref }}
+
+    {%- endmacro -%}''',
+    )
+    customCompileMacros = {compile_macro_root: customCompileMacro}
+
+    if (#skipEagerEvaluation
+        len([]) > 0):
+        return 0
+    elif ():
+
     import copy
-    config = copy.deepcopy(config)
-    config.vars.vars = {'test_var': 'test_var_value_wefefefrf', 'payment_methods': ['new_var_value_1', 'new_var_value_2']}
-    # config.vars =
-    # newConfig = config_from_parts_or_dicts(self.project_cfg, self.profile_cfg)
-    ret = generate_parser_model_context(manifest.nodes['test'], config, manifest, ContextConfig(
-        config,
-        manifest.nodes['test'].fqn,
-        manifest.nodes['test'].resource_type,
-        "root",
-    ))
+    compiledMacroManifest = copy.deepcopy(manifest)
+    compiledMacroManifest.macros = {**loadedMacros.macros, **customCompileMacros}
+
+    ret = generate_parser_model_context(compiledMacroManifest.nodes['test'], config, compiledMacroManifest,
+                                        ContextConfig(
+                                            config,
+                                            compiledMacroManifest.nodes['test'].fqn,
+                                            compiledMacroManifest.nodes['test'].resource_type,
+                                            "root",
+                                        ))
 
     from dbt.clients.jinja import get_template
 
-    end1 = time.time()
-    print(f"Total time in contextCreation ({end1 - contextCreation})")
-    query = """
-    {{ config({         
-        "materialized": "incremental",         
-        "unique_key": "order_id",         
-        "tags": ["orders_snapshots"],         
-        "alias": "orders"     
-        }) 
-    }} 
-    {% set payment_methods = ['credit_card', 'coupon', 'bank_transfer', 'gift_card', 1] %}  
-    {% set my_abc = 'abc' %}  
-    with orders as ( select *, {{var('test_var')}} from {{ ref('stg_orders') }}  ), 
-    payments as (      select * from {{ ref('stg_payments') }}  ),  
-    order_payments as (
-        select     
-            order_id,
-            {{my_abc}},        
-            {{payment_methods}},        
-            {% for payment_method in payment_methods -%}     
-                sum(case when payment_method = '{{ payment_method }}' then amount else 0 end) as {{ payment_method }}_amount,         
-            {% endfor -%}
-            {% for value in ['val1', 'val2', 'val3'] %}
-        last_name_{{value}},
-        {% endfor %}
-        {% if new_var is not defined %}
-        sum(amount) as amounts,
-        {% endif %}
-        {% if new_var is defined %}
-        sum(amount) as dont_exist_amounts,
-        {% endif %}
-            sum(amount) as total_amount      
-        from payments      
-        group by order_id  
-        
-        {{ var('myvar') }}
-    ) 
-    {% if is_incremental() %}    -- this filter will only be applied on an incremental run   
-        where order_date > (select max(order_date) from {{ this }})  
-    {% endif %}
-    {{ dbt_utils.group_by(2) }}
-    {{ dbt_audit(
-        cte_ref="final",
-        created_by="@kishore",
-        updated_by="@bandi",
-        created_date="2021-06-02",
-        updated_date="2022-04-04"
-    ) }}"""
+    # Kish - TODO : Figure out if we need to pass in arguments to this as well or not
+    return get_template('''
+    {{ my_audit() }}
+    ''', ret, capture_macros=False).module
 
-    newVal = get_template(query, ret,
-                          capture_macros=False).module  # .make_module(vars={'test_var': 'test_var_value_wefe'})
-    end2 = time.time()
-    print(f"Total time ({end2 - begin})")
-    print(f"Total time since contextCreation ({end2 - contextCreation})") # Total time since contextCreation (0.0034101009368896484)
-    print(newVal)
+
+print(sql_macro_analyzer_X6TT5gZh_7(''))
+
+for x in range(0, 300):
+    print("""        {
+            "name": "a""" + str(x) + """",
+            "type": "string",
+            "nullable": true,
+            "metadata": {
+                "description": "",
+                "mappings": [],
+                "tags": []
+            }
+        },""")
