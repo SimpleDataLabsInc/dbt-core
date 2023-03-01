@@ -406,11 +406,6 @@ def sql_macro_analyzer_X6TT5gZh_7(query: str):
     )
     customCompileMacros = {compile_macro_root: customCompileMacro}
 
-    if (#skipEagerEvaluation
-        len([]) > 0):
-        return 0
-    elif ():
-
     import copy
     compiledMacroManifest = copy.deepcopy(manifest)
     compiledMacroManifest.macros = {**loadedMacros.macros, **customCompileMacros}
@@ -426,21 +421,23 @@ def sql_macro_analyzer_X6TT5gZh_7(query: str):
     from dbt.clients.jinja import get_template
 
     # Kish - TODO : Figure out if we need to pass in arguments to this as well or not
+    print(get_template('''
+    {{ my_audit() }}
+    ''', ret, capture_macros=False).module)
+
+    del compiledMacroManifest.macros['my_audit']
+
+    ret = generate_parser_model_context(compiledMacroManifest.nodes['test'], config, compiledMacroManifest,
+                                        ContextConfig(
+                                            config,
+                                            compiledMacroManifest.nodes['test'].fqn,
+                                            compiledMacroManifest.nodes['test'].resource_type,
+                                            "root",
+                                        ))
+
     return get_template('''
     {{ my_audit() }}
     ''', ret, capture_macros=False).module
 
 
 print(sql_macro_analyzer_X6TT5gZh_7(''))
-
-for x in range(0, 300):
-    print("""        {
-            "name": "a""" + str(x) + """",
-            "type": "string",
-            "nullable": true,
-            "metadata": {
-                "description": "",
-                "mappings": [],
-                "tags": []
-            }
-        },""")
