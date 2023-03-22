@@ -1,3 +1,6 @@
+from dbt.config import Profile
+from dbt.config.renderer import ProfileRenderer
+
 if __name__ == '__main__':
     import os
 
@@ -181,9 +184,41 @@ profile_cfg = {
     },
     'target': 'test'
 }
+bigquery_profile_cfg = {
+    'outputs': {
+        'test': {
+            'type': 'bigquery',
+            'method': 'service-account',
+            'project': 'prophecy-development',
+            'keyfile': '/Users/kishore/Downloads/googlebigquery.json',
+            'dataset': 'dataset',
+            'threads': 3
+        }
+    },
+    'target': 'test'
+}
+snowflake_profile_cfg = {
+    'outputs': {
+        'test': {
+            'type': 'snowflake',
+            'account': 'IO13013.ap-south-1.aws',
+            'user': 'KISHOREPROPHECY',
+            'password': 'BHA7RpsTjmhbph5',
+            'authenticator': 'username_password_mfa',
+            'role': 'PC_DBT_ROLE',
+            'database': 'PC_DBT_DB',
+            'warehouse': 'PC_DBT_WH',
+            'schema': 'dbt_KBandi',
+            'threads': '1',
+            'client_session_keep_alive': 'False',
+            'query_tag': 'snowflake'
+        }
+    },
+    'target': 'test'
+}
 
 # Kish - TODO : This config can use uniqueID in future, when Program Builder comes
-config = config_from_parts_or_dicts(project_cfg, profile_cfg)
+config = config_from_parts_or_dicts(project_cfg, snowflake_profile_cfg)
 from dbt.adapters.postgres import Plugin
 
 inject_adapter(Plugin.adapter(config), Plugin)
@@ -234,6 +269,17 @@ if '$manifestSpecificToActor' not in globals():
     print("not found")
     global manifest_1401344873
     manifest_1401344873 = copy.deepcopy(manifest)
+    manifest_1401344873.nodes['test'].package_name = 'prophecy_package'
+    global config_1401344873
+    config_1401344873 = copy.deepcopy(config)
+    config_1401344873.project_name = 'prophecy_package'
+    renderer = ProfileRenderer(bigquery_profile_cfg)
+    newProfile = Profile.from_raw_profile_info(
+        copy.deepcopy(bigquery_profile_cfg),
+        'test',
+        renderer,
+    )
+    config_1401344873.credentials = newProfile
 else:
     print("found manifestSpecificToActor, updating it")
 
@@ -254,9 +300,9 @@ def injectmacros_schema_analyzer_1401344873_6():
     global manifest_1401344873
     manifest_1401344873.macros[compile_macro_root] = parsedMacro
 
-    ret = generate_parser_model_context(manifest_1401344873.nodes['test'], config, manifest_1401344873,
+    ret = generate_parser_model_context(manifest_1401344873.nodes['test'], config_1401344873, manifest_1401344873,
                                         ContextConfig(
-                                            config,
+                                            config_1401344873,
                                             manifest_1401344873.nodes['test'].fqn,
                                             manifest_1401344873.nodes['test'].resource_type,
                                             "root",
@@ -275,9 +321,9 @@ def injectmacros_schema_analyzer_1401344873_6():
     compile_macro_root = f'abc.{macroName}'
     manifest_1401344873.macros[compile_macro_root] = parsedMacro
 
-    ret = generate_parser_model_context(manifest_1401344873.nodes['test'], config, manifest_1401344873,
+    ret = generate_parser_model_context(manifest_1401344873.nodes['test'], config_1401344873, manifest_1401344873,
                                         ContextConfig(
-                                            config,
+                                            config_1401344873,
                                             manifest_1401344873.nodes['test'].fqn,
                                             manifest_1401344873.nodes['test'].resource_type,
                                             "root",
@@ -286,6 +332,89 @@ def injectmacros_schema_analyzer_1401344873_6():
     print(get_template('''
     {{ abc.my_call() }}
     ''', ret, capture_macros=False).module)
+
+    macroName = "get_table_types_sql"
+    macroContent = """{%- macro get_table_types_sql() -%}
+  {{ return(adapter.dispatch('get_table_types_sql', 'dbt_utils')()) }}
+{%- endmacro -%}
+"""
+    parsedMacro = createParsedMacro(macroName, macroContent, "TestMacros/macros/cents.sql", 'abc')
+    compile_macro_root = f'abc.{macroName}'
+    manifest_1401344873.macros[compile_macro_root] = parsedMacro
+
+    ret = generate_parser_model_context(manifest_1401344873.nodes['test'], config_1401344873, manifest_1401344873,
+                                        ContextConfig(
+                                            config_1401344873,
+                                            manifest_1401344873.nodes['test'].fqn,
+                                            manifest_1401344873.nodes['test'].resource_type,
+                                            "root",
+                                        ))
+
+    macroName = "default__get_table_types_sql"
+    macroContent = """{% macro default__get_table_types_sql() %}
+            case table_type
+                when 'BASE TABLE' then 'table'
+                when 'EXTERNAL TABLE' then 'external'
+                when 'MATERIALIZED VIEW' then 'materializedview'
+                else lower(table_type)
+            end as {{ adapter.quote('table_type') }}
+{% endmacro %}
+"""
+    parsedMacro = createParsedMacro(macroName, macroContent, "TestMacros/macros/cents.sql", 'abc')
+    compile_macro_root = f'abc.{macroName}'
+    manifest_1401344873.macros[compile_macro_root] = parsedMacro
+
+    ret = generate_parser_model_context(manifest_1401344873.nodes['test'], config_1401344873, manifest_1401344873,
+                                        ContextConfig(
+                                            config_1401344873,
+                                            manifest_1401344873.nodes['test'].fqn,
+                                            manifest_1401344873.nodes['test'].resource_type,
+                                            "root",
+                                        ))
+
+    macroName = "postgres__get_table_types_sql"
+    macroContent = """{% macro postgres__get_table_types_sql() %}
+            case table_type
+                when 'BASE TABLE' then 'table'
+                when 'FOREIGN' then 'external'
+                when 'MATERIALIZED VIEW' then 'materializedview'
+                else lower(table_type)
+            end as {{ adapter.quote('table_type') }}
+{% endmacro %}
+"""
+    parsedMacro = createParsedMacro(macroName, macroContent, "TestMacros/macros/cents.sql", 'abc')
+    compile_macro_root = f'abc.{macroName}'
+    manifest_1401344873.macros[compile_macro_root] = parsedMacro
+
+    ret = generate_parser_model_context(manifest_1401344873.nodes['test'], config_1401344873, manifest_1401344873,
+                                        ContextConfig(
+                                            config_1401344873,
+                                            manifest_1401344873.nodes['test'].fqn,
+                                            manifest_1401344873.nodes['test'].resource_type,
+                                            "root",
+                                        ))
+
+    macroName = "databricks__get_table_types_sql"
+    macroContent = """{% macro databricks__get_table_types_sql() %}
+            case table_type
+                when 'MANAGED' then 'table'
+                when 'BASE TABLE' then 'table'
+                when 'MATERIALIZED VIEW' then 'materializedview'
+                else lower(table_type)
+            end as {{ adapter.quote('table_type') }}
+{% endmacro %}
+"""
+    parsedMacro = createParsedMacro(macroName, macroContent, "TestMacros/macros/cents.sql", 'abc')
+    compile_macro_root = f'abc.{macroName}'
+    manifest_1401344873.macros[compile_macro_root] = parsedMacro
+
+    ret = generate_parser_model_context(manifest_1401344873.nodes['test'], config_1401344873, manifest_1401344873,
+                                        ContextConfig(
+                                            config_1401344873,
+                                            manifest_1401344873.nodes['test'].fqn,
+                                            manifest_1401344873.nodes['test'].resource_type,
+                                            "root",
+                                        ))
 
     macroName = "cents"
     macroContent = """{% macro cents(column_name='abc', decimal_places=123) %}
@@ -296,9 +425,9 @@ def injectmacros_schema_analyzer_1401344873_6():
     compile_macro_root = f'defg.{macroName}'
     manifest_1401344873.macros[compile_macro_root] = parsedMacro
 
-    ret = generate_parser_model_context(manifest_1401344873.nodes['test'], config, manifest_1401344873,
+    ret = generate_parser_model_context(manifest_1401344873.nodes['test'], config_1401344873, manifest_1401344873,
                                         ContextConfig(
-                                            config,
+                                            config_1401344873,
                                             manifest_1401344873.nodes['test'].fqn,
                                             manifest_1401344873.nodes['test'].resource_type,
                                             "root",
@@ -316,9 +445,9 @@ def injectmacros_schema_analyzer_1401344873_6():
     compile_macro_root = f'prophecy_package.{macroName}'
     manifest_1401344873.macros[compile_macro_root] = parsedMacro
 
-    ret = generate_parser_model_context(manifest_1401344873.nodes['test'], config, manifest_1401344873,
+    ret = generate_parser_model_context(manifest_1401344873.nodes['test'], config_1401344873, manifest_1401344873,
                                         ContextConfig(
-                                            config,
+                                            config_1401344873,
                                             manifest_1401344873.nodes['test'].fqn,
                                             manifest_1401344873.nodes['test'].resource_type,
                                             "root",
@@ -337,9 +466,9 @@ def injectmacros_schema_analyzer_1401344873_6():
     compile_macro_root = f'prophecy_package.{macroName}'
     manifest_1401344873.macros[compile_macro_root] = parsedMacro
 
-    ret = generate_parser_model_context(manifest_1401344873.nodes['test'], config, manifest_1401344873,
+    ret = generate_parser_model_context(manifest_1401344873.nodes['test'], config_1401344873, manifest_1401344873,
                                         ContextConfig(
-                                            config,
+                                            config_1401344873,
                                             manifest_1401344873.nodes['test'].fqn,
                                             manifest_1401344873.nodes['test'].resource_type,
                                             "root",
@@ -374,9 +503,9 @@ def macros_schema_analyzer_1401344873_41(query: str):
     global manifest_1401344873
     compiledMacroManifest = copy.deepcopy(manifest_1401344873)
     compiledMacroManifest.macros[compile_macro_root] = parsedMacro
-    ret = generate_parser_model_context(compiledMacroManifest.nodes['test'], config, compiledMacroManifest,
+    ret = generate_parser_model_context(compiledMacroManifest.nodes['test'], config_1401344873, compiledMacroManifest,
                                         ContextConfig(
-                                            config,
+                                            config_1401344873,
                                             compiledMacroManifest.nodes['test'].fqn,
                                             compiledMacroManifest.nodes['test'].resource_type,
                                             "root",
@@ -387,7 +516,7 @@ def macros_schema_analyzer_1401344873_41(query: str):
 
     print("Calling nestedCents")
     return get_template('''
-    {{ nested_cents() }}
+    {{ abc.get_table_types_sql() }}
     ''', ret, capture_macros=False).module
 
 
