@@ -1,6 +1,12 @@
 if __name__ == '__main__':
     import os
 
+criteria_list = ['Q_00000', 'Q_00001', "first"]
+columns = ['Q_00001', 'first_name', 'last_name']
+
+print(*[c for c in columns if any(x in c for x in criteria_list)])
+print(*[c for c in columns if any(filter(lambda x: x in c, criteria_list))])
+
 import os
 
 os.environ["DBT_PROFILES_DIR"] = "/tmp/dbt_profiles/"
@@ -14,13 +20,13 @@ from dbt.contracts.graph.parsed import ParsedMacro, ParsedModelNode
 from dbt.node_types import NodeType
 
 
-def createParsedMacro(macroName, macroContent, macroPath):
+def createParsedMacro(macroName, macroContent, macroPath, packageName='prophecy_package'):
     compile_macro_root = f'{macroName}'
     customCompileMacro = ParsedMacro(
         name=compile_macro_root,
         resource_type=NodeType.Macro,
         unique_id=compile_macro_root,
-        package_name='prophecy_package',
+        package_name=f'{packageName}',
         original_file_path=normalize(f'{macroPath}'),
         root_path=get_abs_os_path('/tmp/prophecy'),
         path=normalize(f'{macroPath}'),
@@ -238,21 +244,110 @@ def injectmacros_schema_analyzer_1401344873_6():
 
     macroName = "cents"
     macroContent = """{% macro cents(column_name='abc', decimal_places=123) %}
-{{column_name}} + 123
+{{column_name}} + 123 + 1 + abc
 {% endmacro %}
 """
-    customCompileMacros = {}
 
-    parsedMacro = createParsedMacro(macroName, macroContent, "TestMacros/macros/cents.sql")
-    compile_macro_root = f'{macroName}'
-    customCompileMacros[compile_macro_root] = parsedMacro
+    parsedMacro = createParsedMacro(macroName, macroContent, "TestMacros/macros/cents.sql", 'abc')
+    compile_macro_root = f'abc.{macroName}'
 
-    import copy
     global manifest_1401344873
+    manifest_1401344873.macros[compile_macro_root] = parsedMacro
 
-    # CHECK if this is needed
-    localLoadedMacros = manifest_1401344873.macros
-    manifest_1401344873.macros = {**localLoadedMacros, **customCompileMacros}
+    ret = generate_parser_model_context(manifest_1401344873.nodes['test'], config, manifest_1401344873,
+                                        ContextConfig(
+                                            config,
+                                            manifest_1401344873.nodes['test'].fqn,
+                                            manifest_1401344873.nodes['test'].resource_type,
+                                            "root",
+                                        ))
+
+    print(get_template('''
+    {{ abc.cents() }}
+    ''', ret, capture_macros=False).module)
+
+    macroName = "my_call"
+    macroContent = """{% macro my_call(column_name='abc', decimal_places=123) %}
+{{abc.cents()}} + 123 + 3 + abc
+{% endmacro %}
+"""
+    parsedMacro = createParsedMacro(macroName, macroContent, "TestMacros/macros/cents.sql", 'abc')
+    compile_macro_root = f'abc.{macroName}'
+    manifest_1401344873.macros[compile_macro_root] = parsedMacro
+
+    ret = generate_parser_model_context(manifest_1401344873.nodes['test'], config, manifest_1401344873,
+                                        ContextConfig(
+                                            config,
+                                            manifest_1401344873.nodes['test'].fqn,
+                                            manifest_1401344873.nodes['test'].resource_type,
+                                            "root",
+                                        ))
+
+    print(get_template('''
+    {{ abc.my_call() }}
+    ''', ret, capture_macros=False).module)
+
+    macroName = "cents"
+    macroContent = """{% macro cents(column_name='abc', decimal_places=123) %}
+{{column_name}} + 123 + 2
+{% endmacro %}
+"""
+    parsedMacro = createParsedMacro(macroName, macroContent, "TestMacros/macros/cents.sql", 'defg')
+    compile_macro_root = f'defg.{macroName}'
+    manifest_1401344873.macros[compile_macro_root] = parsedMacro
+
+    ret = generate_parser_model_context(manifest_1401344873.nodes['test'], config, manifest_1401344873,
+                                        ContextConfig(
+                                            config,
+                                            manifest_1401344873.nodes['test'].fqn,
+                                            manifest_1401344873.nodes['test'].resource_type,
+                                            "root",
+                                        ))
+
+    print(get_template('''
+    {{ defg.cents() }}
+    ''', ret, capture_macros=False).module)
+
+    macroContent = """{% macro cents(column_name='abc', decimal_places=123) %}
+    {{column_name}} + 123 + 3
+    {% endmacro %}
+    """
+    parsedMacro = createParsedMacro(macroName, macroContent, "TestMacros/macros/cents.sql", 'prophecy_package')
+    compile_macro_root = f'prophecy_package.{macroName}'
+    manifest_1401344873.macros[compile_macro_root] = parsedMacro
+
+    ret = generate_parser_model_context(manifest_1401344873.nodes['test'], config, manifest_1401344873,
+                                        ContextConfig(
+                                            config,
+                                            manifest_1401344873.nodes['test'].fqn,
+                                            manifest_1401344873.nodes['test'].resource_type,
+                                            "root",
+                                        ))
+    print("calling prophecy_package cents")
+    print(get_template('''
+            {{ cents() }}
+            ''', ret, capture_macros=False).module)
+
+    macroName = "my_call"
+    macroContent = """{% macro my_call(column_name='abc', decimal_places=123) %}
+        {{cents()}} + 123 + 3 + prophecy
+        {% endmacro %}
+        """
+    parsedMacro = createParsedMacro(macroName, macroContent, "TestMacros/macros/cents.sql", 'prophecy_package')
+    compile_macro_root = f'prophecy_package.{macroName}'
+    manifest_1401344873.macros[compile_macro_root] = parsedMacro
+
+    ret = generate_parser_model_context(manifest_1401344873.nodes['test'], config, manifest_1401344873,
+                                        ContextConfig(
+                                            config,
+                                            manifest_1401344873.nodes['test'].fqn,
+                                            manifest_1401344873.nodes['test'].resource_type,
+                                            "root",
+                                        ))
+    print("calling prophecy_package my_call")
+    print(get_template('''
+            {{ my_call() }}
+            ''', ret, capture_macros=False).module)
 
     return 123
 
@@ -266,19 +361,19 @@ def macros_schema_analyzer_1401344873_41(query: str):
 
     macroName = "nested_cents"
     macroContent = """{% macro nested_cents(column_name) %}
-{{cents(column_name)}} + bla
+{{abc.cents(column_name)}} + bla
+{{defg.cents(column_name)}} + bla
+{{abc.my_call()}} + bla
 {% endmacro %}
 """
-    customCompileMacros = {}
 
-    parsedMacro = createParsedMacro(macroName, macroContent, "TestMacros/macros/nested_cents.sql")
-    compile_macro_root = f'{macroName}'
-    customCompileMacros[compile_macro_root] = parsedMacro
+    parsedMacro = createParsedMacro(macroName, macroContent, "TestMacros/macros/nested_cents.sql", 'prophecy_package')
+    compile_macro_root = f'prophecy_package.{macroName}'
 
     import copy
     global manifest_1401344873
     compiledMacroManifest = copy.deepcopy(manifest_1401344873)
-    compiledMacroManifest.macros = {**loadedMacros.macros, **customCompileMacros}
+    compiledMacroManifest.macros[compile_macro_root] = parsedMacro
     ret = generate_parser_model_context(compiledMacroManifest.nodes['test'], config, compiledMacroManifest,
                                         ContextConfig(
                                             config,
@@ -290,7 +385,10 @@ def macros_schema_analyzer_1401344873_41(query: str):
     compiledModules = {}
     compiledModules[macroName] = getTemplateAsModule(macroName, ret)
 
-    return compiledModules
+    print("Calling nestedCents")
+    return get_template('''
+    {{ nested_cents() }}
+    ''', ret, capture_macros=False).module
 
 
 print(macros_schema_analyzer_1401344873_41(""))

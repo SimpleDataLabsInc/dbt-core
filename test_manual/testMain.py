@@ -124,6 +124,7 @@ def config_from_parts_or_dicts(project, profile, packages=None, selectors=None, 
     )
 
 if __name__ == '__main__':
+
     model_config = NodeConfig.from_dict({
         'enabled': True,
         'materialized': 'view',
@@ -451,3 +452,14 @@ if __name__ == '__main__':
     print(f"Total time ({end2 - begin})")
     print(f"Total time since contextCreation ({end2 - contextCreation})") # Total time since contextCreation (0.0034101009368896484)
     print(newVal)
+
+
+
+    from dbt.clients.jinja import get_template
+    newVal = get_template("""{% set x = dbt_audit(cte_ref="final",
+        created_by="@kishore",
+        updated_by="@bandi",
+        created_date="2021-06-02",
+        updated_date="2022-04-04") %}""", ret, capture_macros=False).module
+
+    print(f"newVal of config {newVal}")
