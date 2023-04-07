@@ -1,5 +1,6 @@
 from dbt.config import Profile
 from dbt.config.renderer import ProfileRenderer
+from dbt.contracts.project import LocalPackage
 
 if __name__ == '__main__':
     import os
@@ -157,12 +158,13 @@ model_config = NodeConfig.from_dict({
 })
 
 project_cfg = {
-    'name': 'prophecy_package',
+    'name': 'dummy_new_package',
     'version': '0.1',
     'profile': 'test',
     'project-root': '/Users/kishore/prophecy-git/dbt-core/dummy_profiles/dummy_dbt/',
     'config-version': 2,
     'vars': {},
+    'packages': [{'local': './'}]
 }
 profile_cfg = {
     'outputs': {
@@ -197,14 +199,28 @@ snowflake_profile_cfg = {
             'type': 'snowflake',
             'account': 'IO13013.ap-south-1.aws',
             'user': 'KISHOREPROPHECY',
-            'password': 'BHA7RpsTjmhbph5',
+            'password': 'BANDI123',
             'authenticator': 'username_password_mfa',
             'role': 'PC_DBT_ROLE',
             'database': 'PC_DBT_DB',
             'warehouse': 'PC_DBT_WH',
             'schema': 'dbt_KBandi',
-            'threads': 1,
+            'threads': 3,
             'client_session_keep_alive': False
+        }
+    },
+    'target': 'test'
+}
+databricks_profile_cfg = {
+    'outputs': {
+        'test': {
+            'type': 'databricks',
+            'host': 'dbc-147abc45-b6c7.cloud.databricks.com',
+            'http_path': '/sql/1.0/warehouses/2da936f35acda6b0',
+            'token': 'mytoken123',
+            'catalog': 'hive',
+            'schema': 'default',
+            'threads': 3
         }
     },
     'target': 'test'
@@ -214,19 +230,21 @@ snowflake_profile_cfg = {
 config = config_from_parts_or_dicts(project_cfg, profile_cfg)
 bigquery_config = config_from_parts_or_dicts(project_cfg, bigquery_profile_cfg)
 snowflake_config = config_from_parts_or_dicts(project_cfg, snowflake_profile_cfg)
+databricks_config = config_from_parts_or_dicts(project_cfg, databricks_profile_cfg)
 from dbt.adapters.postgres import Plugin as PostgresPlugin
 from dbt.adapters.snowflake import Plugin as SnowFlakePlugin
 from dbt.adapters.bigquery import Plugin as BigQueryPlugin
+from dbt.adapters.databricks import Plugin as DataBricksPlugin
 
 inject_adapter(PostgresPlugin.adapter(config), PostgresPlugin)
 inject_adapter(SnowFlakePlugin.adapter(snowflake_config), SnowFlakePlugin)
 inject_adapter(BigQueryPlugin.adapter(bigquery_config), BigQueryPlugin)
+inject_adapter(DataBricksPlugin.adapter(databricks_config), DataBricksPlugin)
 from dbt.adapters.factory import get_adapter
 
 adapter = get_adapter(config)
 macro_hook = adapter.connections.set_query_header
 from dbt.parser.manifest import ManifestLoader
-
 loadedMacros = ManifestLoader.load_macros(config, macro_hook)
 
 # We can add our custom macros in here
@@ -270,15 +288,15 @@ if '$manifestSpecificToActor' not in globals():
     manifest_1401344873 = copy.deepcopy(manifest)
     manifest_1401344873.nodes['test'].package_name = 'prophecy_package'
     global config_1401344873
-    config_1401344873 = copy.deepcopy(config)
+    config_1401344873 = copy.deepcopy(databricks_config)
     config_1401344873.project_name = 'prophecy_package'
-    renderer = ProfileRenderer(snowflake_profile_cfg)
-    newProfile = Profile.from_raw_profile_info(
-        copy.deepcopy(snowflake_profile_cfg),
-        'test',
-        renderer,
-    )
-    config_1401344873.credentials = newProfile
+    # renderer = ProfileRenderer(snowflake_profile_cfg)
+    # newProfile = Profile.from_raw_profile_info(
+    #     copy.deepcopy(snowflake_profile_cfg),
+    #     'test',
+    #     renderer,
+    # )
+    # config_1401344873.credentials = newProfile
 else:
     print("found manifestSpecificToActor, updating it")
 
@@ -334,7 +352,7 @@ def injectmacros_schema_analyzer_1401344873_6():
 
     macroName = "get_table_types_sql"
     macroContent = """{%- macro get_table_types_sql() -%}
-  {{ return(adapter.dispatch('get_table_types_sql', 'dbt_utils')()) }}
+  {{ return(adapter.dispatch('get_table_types_sql', 'abc')()) }}
 {%- endmacro -%}
 """
     parsedMacro = createParsedMacro(macroName, macroContent, "TestMacros/macros/cents.sql", 'abc')
@@ -414,6 +432,11 @@ def injectmacros_schema_analyzer_1401344873_6():
                                             manifest_1401344873.nodes['test'].resource_type,
                                             "root",
                                         ))
+
+    print("calling get_table_types_sql")
+    print(get_template('''
+            {{ abc.get_table_types_sql() }}
+            ''', ret, capture_macros=False).module)
 
     macroName = "cents"
     macroContent = """{% macro cents(column_name='abc', decimal_places=123) %}
@@ -513,7 +536,7 @@ def macros_schema_analyzer_1401344873_41(query: str):
     compiledModules = {}
     compiledModules[macroName] = getTemplateAsModule(macroName, ret)
 
-    print("Calling nestedCents")
+    print("Calling abc's get_table_types_sql")
     return get_template('''
     {{ abc.get_table_types_sql() }}
     ''', ret, capture_macros=False).module
