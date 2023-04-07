@@ -4,12 +4,6 @@ from dbt.config.renderer import ProfileRenderer
 if __name__ == '__main__':
     import os
 
-criteria_list = ['Q_00000', 'Q_00001', "first"]
-columns = ['Q_00001', 'first_name', 'last_name']
-
-print(*[c for c in columns if any(x in c for x in criteria_list)])
-print(*[c for c in columns if any(filter(lambda x: x in c, criteria_list))])
-
 import os
 
 os.environ["DBT_PROFILES_DIR"] = "/tmp/dbt_profiles/"
@@ -209,19 +203,24 @@ snowflake_profile_cfg = {
             'database': 'PC_DBT_DB',
             'warehouse': 'PC_DBT_WH',
             'schema': 'dbt_KBandi',
-            'threads': '1',
-            'client_session_keep_alive': 'False',
-            'query_tag': 'snowflake'
+            'threads': 1,
+            'client_session_keep_alive': False
         }
     },
     'target': 'test'
 }
 
 # Kish - TODO : This config can use uniqueID in future, when Program Builder comes
-config = config_from_parts_or_dicts(project_cfg, snowflake_profile_cfg)
-from dbt.adapters.postgres import Plugin
+config = config_from_parts_or_dicts(project_cfg, profile_cfg)
+bigquery_config = config_from_parts_or_dicts(project_cfg, bigquery_profile_cfg)
+snowflake_config = config_from_parts_or_dicts(project_cfg, snowflake_profile_cfg)
+from dbt.adapters.postgres import Plugin as PostgresPlugin
+from dbt.adapters.snowflake import Plugin as SnowFlakePlugin
+from dbt.adapters.bigquery import Plugin as BigQueryPlugin
 
-inject_adapter(Plugin.adapter(config), Plugin)
+inject_adapter(PostgresPlugin.adapter(config), PostgresPlugin)
+inject_adapter(SnowFlakePlugin.adapter(snowflake_config), SnowFlakePlugin)
+inject_adapter(BigQueryPlugin.adapter(bigquery_config), BigQueryPlugin)
 from dbt.adapters.factory import get_adapter
 
 adapter = get_adapter(config)
@@ -273,9 +272,9 @@ if '$manifestSpecificToActor' not in globals():
     global config_1401344873
     config_1401344873 = copy.deepcopy(config)
     config_1401344873.project_name = 'prophecy_package'
-    renderer = ProfileRenderer(bigquery_profile_cfg)
+    renderer = ProfileRenderer(snowflake_profile_cfg)
     newProfile = Profile.from_raw_profile_info(
-        copy.deepcopy(bigquery_profile_cfg),
+        copy.deepcopy(snowflake_profile_cfg),
         'test',
         renderer,
     )
