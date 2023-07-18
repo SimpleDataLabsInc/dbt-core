@@ -245,6 +245,7 @@ from dbt.adapters.factory import get_adapter
 adapter = get_adapter(config)
 macro_hook = adapter.connections.set_query_header
 from dbt.parser.manifest import ManifestLoader
+
 loadedMacros = ManifestLoader.load_macros(config, macro_hook)
 
 # We can add our custom macros in here
@@ -262,7 +263,7 @@ manifest = Manifest(
             unique_id='test',
             fqn=['test'],
             package_name='prophecy_package',
-            root_path='/usr/kishore/app',
+            root_path='/tmp/dummy_dbt',
             config=model_config,
             path='view.sql',
             original_file_path='view.sql',
@@ -542,4 +543,36 @@ def macros_schema_analyzer_1401344873_41(query: str):
     ''', ret, capture_macros=False).module
 
 
-print(macros_schema_analyzer_1401344873_41(""))
+# print(macros_schema_analyzer_1401344873_41(""))
+
+
+def sql_schema_analyzer_bmm6LtGe_79(query: str):
+    from dbt.context.providers import generate_parser_model_context
+    from dbt.context.context_config import ContextConfig
+
+    import copy
+    global manifest_1401344873
+    global config_1401344873
+    config_bmm6LtGe_78 = copy.deepcopy(config_1401344873)
+    config_bmm6LtGe_78.vars.vars = {"my_dict": {"a": 1}}
+
+    ret = generate_parser_model_context(manifest_1401344873.nodes['test'], config_bmm6LtGe_78, manifest_1401344873,
+                                        ContextConfig(
+                                            config_bmm6LtGe_78,
+                                            manifest_1401344873.nodes['test'].fqn,
+                                            manifest_1401344873.nodes['test'].resource_type,
+                                            "root",
+                                        ))
+
+    from dbt.clients.jinja import get_template
+
+    return get_template(query, ret, capture_macros=False).module
+
+
+print(sql_schema_analyzer_bmm6LtGe_79(r"""{% set tab = ref('stg_orders') %}
+{{ dbt_utils.default__nullcheck_table(relation = tab) }}"""))
+
+print(sql_schema_analyzer_bmm6LtGe_79(r"""SELECT 
+  {{ dbt_utils.surrogate_key(['first_name', 'last_name']) }} AS myKey
+
+FROM test"""))

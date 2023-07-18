@@ -1,4 +1,5 @@
 import os
+from typing import Optional
 
 os.environ["DBT_PROFILES_DIR"] = "/Users/kishore/prophecy-git/dbt-core/dummy_profiles/dbt_profiles/"
 
@@ -7,8 +8,32 @@ from dbt.contracts.files import FileHash
 from dbt.contracts.graph.manifest import Manifest
 from dbt.contracts.graph.model_config import NodeConfig
 from dbt.config.project import PartialProject
-from dbt.contracts.graph.parsed import ParsedMacro, ParsedModelNode
+from dbt.contracts.graph.parsed import ParsedMacro, ParsedModelNode, ParsedSourceDefinition
 from dbt.node_types import NodeType
+from dbt.context.providers import (BaseResolver, BaseRefResolver, BaseSourceResolver)
+import re
+
+# If you change this function, change the generateDbtResolvedTableName scala function below too
+def generateDbtResolvedTableName(parts):
+    return re.sub('\\W', '_', 'schema_analysis_' + '_'.join(parts))
+
+class AnalysisRefResolver(BaseRefResolver):
+    def __init__(self, resolver: BaseResolver):
+        super().__init__(resolver.db_wrapper, resolver.model, resolver.config, resolver.manifest)
+
+    def resolve(self, name: str, package: Optional[str] = None) -> str:
+        ref_name_parts = self._repack_args(name, package)
+        self.model.refs.append(ref_name_parts)
+        return generateDbtResolvedTableName(["ref"] + ref_name_parts)
+
+class AnalysisSourceResolver(BaseSourceResolver):
+    def __init__(self, resolver: BaseResolver):
+        super().__init__(resolver.db_wrapper, resolver.model, resolver.config, resolver.manifest)
+
+    def resolve(self, source_name: str, table_name: str):
+        self.model.sources.append([source_name, table_name])
+        return generateDbtResolvedTableName(["source", source_name, table_name])
+
 
 
 def get_abs_os_path(unix_path):
@@ -296,7 +321,25 @@ if __name__ == '__main__':
             #     # depends_on=MacroDependsOn(),
             # ),
         },
-        sources={},
+        sources={
+            'prophecy.sname.tableName': ParsedSourceDefinition(
+                database='mydb',
+                schema='myschema',
+                resource_type=NodeType.Source,
+                identifier='some_source',
+                name='tableName',
+                source_name='sname',
+                source_description='My source description',
+                description='Table description',
+                loader='a_loader',
+                unique_id='source.test.my_source.my_table',
+                fqn=['prophecy', 'sname', 'tableName'],
+                package_name='root',
+                root_path='',
+                path='schema.yml',
+                original_file_path='schema.yml',
+            ),
+        },
         docs={},
         disabled=[],
         files={},
@@ -333,7 +376,7 @@ if __name__ == '__main__':
     {% set payment_methods = ['credit_card', 'coupon', 'bank_transfer', 'gift_card', 1] %}  
     {% set my_abc = 'abc' %}  
     with orders as ( select *, {{var('test_var')}} from {{ ref('stg_orders') }}  ), 
-    payments as (      select * from {{ ref('stg_payments') }}  ),  
+    payments as (      select * from {{ ref('stg_payments') }} left join {{source("mysrc","tableName")}} ),  
     order_payments as (
         select     
             order_id,
@@ -407,6 +450,8 @@ if __name__ == '__main__':
         "alias": "orders"     
         }) 
     }} 
+    select * from {{ source('sname','tableName') }}
+    select * from {{ ref('mytableName') }}
     {% set payment_methods = ['credit_card', 'coupon', 'bank_transfer', 'gift_card', 1] %}  
     {% set my_abc = 'abc' %}  
     with orders as ( select *, {{var('test_var')}} from {{ ref('stg_orders') }}  ), 
@@ -451,7 +496,7 @@ if __name__ == '__main__':
     end2 = time.time()
     print(f"Total time ({end2 - begin})")
     print(f"Total time since contextCreation ({end2 - contextCreation})") # Total time since contextCreation (0.0034101009368896484)
-    print(newVal)
+    print(f"newVal is - {newVal}")
 
 
 
