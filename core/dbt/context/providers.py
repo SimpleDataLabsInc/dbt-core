@@ -17,6 +17,7 @@ from typing import (
     Tuple,
     TYPE_CHECKING,
 )
+import re
 
 from typing_extensions import Protocol
 
@@ -551,20 +552,20 @@ class RuntimeRefResolver(BaseRefResolver):
             self.model.set_cte(target_model.unique_id, None)
             return self.Relation.create_ephemeral_from(target_model, limit=self.resolve_limit)
         elif (
-            hasattr(target_model, "defer_relation")
-            and target_model.defer_relation
-            and self.config.args.defer
-            and (
-                # User has explicitly opted to prefer defer_relation for unselected resources
-                (
-                    self.config.args.favor_state
-                    and target_model.unique_id not in selected_resources.SELECTED_RESOURCES
-                )
-                # Or, this node's relation does not exist in the expected target location (cache lookup)
-                or not get_adapter(self.config).get_relation(
+                hasattr(target_model, "defer_relation")
+                and target_model.defer_relation
+                and self.config.args.defer
+                and (
+                        # User has explicitly opted to prefer defer_relation for unselected resources
+                        (
+                                self.config.args.favor_state
+                                and target_model.unique_id not in selected_resources.SELECTED_RESOURCES
+                        )
+                        # Or, this node's relation does not exist in the expected target location (cache lookup)
+                        or not get_adapter(self.config).get_relation(
                     target_model.database, target_model.schema, target_model.identifier
                 )
-            )
+                )
         ):
             return self.Relation.create_from(
                 self.config, target_model.defer_relation, limit=self.resolve_limit
@@ -605,10 +606,10 @@ class OperationRefResolver(RuntimeRefResolver):
 
 class RuntimeUnitTestRefResolver(RuntimeRefResolver):
     def resolve(
-        self,
-        target_name: str,
-        target_package: Optional[str] = None,
-        target_version: Optional[NodeVersion] = None,
+            self,
+            target_name: str,
+            target_package: Optional[str] = None,
+            target_version: Optional[NodeVersion] = None,
     ) -> RelationProxy:
         return super().resolve(target_name, target_package, target_version)
 
@@ -741,10 +742,10 @@ class RuntimeVar(ModelConfiguredVar):
 
 class UnitTestVar(RuntimeVar):
     def __init__(
-        self,
-        context: Dict[str, Any],
-        config: RuntimeConfig,
-        node: Resource,
+            self,
+            context: Dict[str, Any],
+            config: RuntimeConfig,
+            node: Resource,
     ) -> None:
         config_copy = None
         assert isinstance(node, UnitTestNode)
@@ -884,7 +885,7 @@ class ProviderContext(ManifestContext):
 
     @contextmember()
     def store_result(
-        self, name: str, response: Any, agate_table: Optional["agate.Table"] = None
+            self, name: str, response: Any, agate_table: Optional["agate.Table"] = None
     ) -> str:
         from dbt_common.clients import agate_helper
 
@@ -902,12 +903,12 @@ class ProviderContext(ManifestContext):
 
     @contextmember()
     def store_raw_result(
-        self,
-        name: str,
-        message=Optional[str],
-        code=Optional[str],
-        rows_affected=Optional[str],
-        agate_table: Optional["agate.Table"] = None,
+            self,
+            name: str,
+            message=Optional[str],
+            code=Optional[str],
+            rows_affected=Optional[str],
+            agate_table: Optional["agate.Table"] = None,
     ) -> str:
         response = AdapterResponse(_message=message, code=code, rows_affected=rows_affected)
         return self.store_result(name, response, agate_table)
@@ -1343,9 +1344,9 @@ class ProviderContext(ManifestContext):
             model_dct["compiled_sql"] = model_dct["compiled_code"]
 
         if (
-            hasattr(self.model, "contract")
-            and self.model.contract.alias_types is True
-            and "columns" in model_dct
+                hasattr(self.model, "contract")
+                and self.model.contract.alias_types is True
+                and "columns" in model_dct
         ):
             for column in model_dct["columns"].values():
                 if "data_type" in column:
@@ -1463,12 +1464,12 @@ class MacroContext(ProviderContext):
     """
 
     def __init__(
-        self,
-        model: MacroProtocol,
-        config: RuntimeConfig,
-        manifest: Manifest,
-        provider: Provider,
-        search_package: Optional[str],
+            self,
+            model: MacroProtocol,
+            config: RuntimeConfig,
+            manifest: Manifest,
+            provider: Provider,
+            search_package: Optional[str],
     ) -> None:
         super().__init__(model, config, manifest, provider, None)
         # override the model-based package with the given one
@@ -1640,19 +1641,19 @@ def generate_runtime_model_context(
 
 
 def generate_runtime_macro_context(
-    macro: MacroProtocol,
-    config: RuntimeConfig,
-    manifest: Manifest,
-    package_name: Optional[str],
+        macro: MacroProtocol,
+        config: RuntimeConfig,
+        manifest: Manifest,
+        package_name: Optional[str],
 ) -> Dict[str, Any]:
     ctx = MacroContext(macro, config, manifest, OperationProvider(), package_name)
     return ctx.to_dict()
 
 
 def generate_runtime_unit_test_context(
-    unit_test: UnitTestNode,
-    config: RuntimeConfig,
-    manifest: Manifest,
+        unit_test: UnitTestNode,
+        config: RuntimeConfig,
+        manifest: Manifest,
 ) -> Dict[str, Any]:
     ctx = UnitTestContext(unit_test, config, manifest, RuntimeUnitTestProvider(), None)
     ctx_dict = ctx.to_dict()
@@ -1676,9 +1677,9 @@ def generate_runtime_unit_test_context(
 
             # macro overrides of package-namespaced macros
             elif (
-                macro_package
-                and macro_package in ctx_dict
-                and macro_name in ctx_dict[macro_package]
+                    macro_package
+                    and macro_package in ctx_dict
+                    and macro_name in ctx_dict[macro_package]
             ):
                 original_context_value = ctx_dict[macro_package][macro_name]
                 if isinstance(original_context_value, MacroGenerator):

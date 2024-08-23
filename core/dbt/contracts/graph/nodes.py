@@ -362,13 +362,13 @@ class ParsedNode(ParsedResource, NodeInfoMixin, ParsedNodeMandatory, Serializabl
         # could throw an error
         same_contract = self.same_contract(old, adapter_type)
         return (
-            self.same_body(old)
-            and self.same_config(old)
-            and self.same_persisted_description(old)
-            and self.same_fqn(old)
-            and self.same_database_representation(old)
-            and same_contract
-            and True
+                self.same_body(old)
+                and self.same_config(old)
+                and self.same_persisted_description(old)
+                and self.same_fqn(old)
+                and self.same_database_representation(old)
+                and same_contract
+                and True
         )
 
     @property
@@ -523,8 +523,8 @@ class ModelNode(ModelResource, CompiledNode):
         columns_with_unique_and_not_null_tests = []
         for column in columns_with_not_null_tests:
             if (
-                column in columns_with_enabled_unique_tests
-                or column in columns_with_disabled_unique_tests
+                    column in columns_with_enabled_unique_tests
+                    or column in columns_with_disabled_unique_tests
             ):
                 columns_with_unique_and_not_null_tests.append(column)
         if columns_with_unique_and_not_null_tests:
@@ -544,10 +544,10 @@ class ModelNode(ModelResource, CompiledNode):
     def same_ref_representation(self, old) -> bool:
         return (
             # Changing the latest_version may break downstream unpinned refs
-            self.latest_version == old.latest_version
-            # Changes to access or deprecation_date may lead to ref-related parsing errors
-            and self.access == old.access
-            and self.deprecation_date == old.deprecation_date
+                self.latest_version == old.latest_version
+                # Changes to access or deprecation_date may lead to ref-related parsing errors
+                and self.access == old.access
+                and self.deprecation_date == old.deprecation_date
         )
 
     def build_contract_checksum(self):
@@ -635,14 +635,14 @@ class ModelNode(ModelResource, CompiledNode):
             # Constraints are only enforced for table and incremental materializations.
             # We only really care if the old node was one of those materializations for breaking changes
             if (
-                old_key in self.columns.keys()
-                and old_value.constraints != self.columns[old_key].constraints
-                and old.materialization_enforces_constraints
+                    old_key in self.columns.keys()
+                    and old_value.constraints != self.columns[old_key].constraints
+                    and old.materialization_enforces_constraints
             ):
                 for old_constraint in old_value.constraints:
                     if (
-                        old_constraint not in self.columns[old_key].constraints
-                        and constraint_support[old_constraint.type] == ConstraintSupport.ENFORCED
+                            old_constraint not in self.columns[old_key].constraints
+                            and constraint_support[old_constraint.type] == ConstraintSupport.ENFORCED
                     ):
                         enforced_column_constraint_removed.append(
                             {
@@ -656,8 +656,8 @@ class ModelNode(ModelResource, CompiledNode):
         if old.constraints != self.constraints and old.materialization_enforces_constraints:
             for old_constraint in old.constraints:
                 if (
-                    old_constraint not in self.constraints
-                    and constraint_support[old_constraint.type] == ConstraintSupport.ENFORCED
+                        old_constraint not in self.constraints
+                        and constraint_support[old_constraint.type] == ConstraintSupport.ENFORCED
                 ):
                     enforced_model_constraint_removed.append(
                         {
@@ -669,9 +669,9 @@ class ModelNode(ModelResource, CompiledNode):
 
         # Check for relevant materialization changes.
         if (
-            old.materialization_enforces_constraints
-            and not self.materialization_enforces_constraints
-            and (old.constraints or column_constraints_exist)
+                old.materialization_enforces_constraints
+                and not self.materialization_enforces_constraints
+                and (old.constraints or column_constraints_exist)
         ):
             materialization_changed = [old.config.materialized, self.config.materialized]
 
@@ -681,12 +681,12 @@ class ModelNode(ModelResource, CompiledNode):
         # Did we find any changes that we consider breaking? If there's an enforced contract, that's
         # a warning unless the model is versioned, then it's an error.
         if (
-            contract_enforced_disabled
-            or columns_removed
-            or column_type_changes
-            or enforced_model_constraint_removed
-            or enforced_column_constraint_removed
-            or materialization_changed
+                contract_enforced_disabled
+                or columns_removed
+                or column_type_changes
+                or enforced_model_constraint_removed
+                or enforced_column_constraint_removed
+                or materialization_changed
         ):
 
             breaking_changes = []
@@ -1183,10 +1183,10 @@ class SourceDefinition(
 
     def same_database_representation(self, other: "SourceDefinition") -> bool:
         return (
-            self.database == other.database
-            and self.schema == other.schema
-            and self.identifier == other.identifier
-            and True
+                self.database == other.database
+                and self.schema == other.schema
+                and self.identifier == other.identifier
+                and True
         )
 
     def same_quoting(self, other: "SourceDefinition") -> bool:
@@ -1194,9 +1194,9 @@ class SourceDefinition(
 
     def same_freshness(self, other: "SourceDefinition") -> bool:
         return (
-            self.freshness == other.freshness
-            and self.loaded_at_field == other.loaded_at_field
-            and True
+                self.freshness == other.freshness
+                and self.loaded_at_field == other.loaded_at_field
+                and True
         )
 
     def same_external(self, other: "SourceDefinition") -> bool:
@@ -1222,13 +1222,13 @@ class SourceDefinition(
         # metadata/tags changes are not "changes"
         # patching/description changes are not "changes"
         return (
-            self.same_database_representation(old)
-            and self.same_fqn(old)
-            and self.same_config(old)
-            and self.same_quoting(old)
-            and self.same_freshness(old)
-            and self.same_external(old)
-            and True
+                self.same_database_representation(old)
+                and self.same_fqn(old)
+                and self.same_config(old)
+                and self.same_quoting(old)
+                and self.same_freshness(old)
+                and self.same_external(old)
+                and True
         )
 
     def get_full_source_name(self):
@@ -1331,16 +1331,16 @@ class Exposure(GraphNode, ExposureResource):
             return True
 
         return (
-            self.same_fqn(old)
-            and self.same_exposure_type(old)
-            and self.same_owner(old)
-            and self.same_maturity(old)
-            and self.same_url(old)
-            and self.same_description(old)
-            and self.same_label(old)
-            and self.same_depends_on(old)
-            and self.same_config(old)
-            and True
+                self.same_fqn(old)
+                and self.same_exposure_type(old)
+                and self.same_owner(old)
+                and self.same_maturity(old)
+                and self.same_url(old)
+                and self.same_description(old)
+                and self.same_label(old)
+                and self.same_depends_on(old)
+                and self.same_config(old)
+                and True
         )
 
     @property
@@ -1398,14 +1398,14 @@ class Metric(GraphNode, MetricResource):
             return True
 
         return (
-            self.same_filter(old)
-            and self.same_metadata(old)
-            and self.same_type(old)
-            and self.same_type_params(old)
-            and self.same_description(old)
-            and self.same_label(old)
-            and self.same_config(old)
-            and True
+                self.same_filter(old)
+                and self.same_metadata(old)
+                and self.same_type(old)
+                and self.same_type_params(old)
+                and self.same_description(old)
+                and self.same_label(old)
+                and self.same_config(old)
+                and True
         )
 
     def add_input_measure(self, input_measure: MetricInputMeasure) -> None:
@@ -1480,16 +1480,16 @@ class SemanticModel(GraphNode, SemanticModelResource):
             return True
 
         return (
-            self.same_model(old)
-            and self.same_description(old)
-            and self.same_defaults(old)
-            and self.same_entities(old)
-            and self.same_dimensions(old)
-            and self.same_measures(old)
-            and self.same_config(old)
-            and self.same_primary_entity(old)
-            and self.same_group(old)
-            and True
+                self.same_model(old)
+                and self.same_description(old)
+                and self.same_defaults(old)
+                and self.same_entities(old)
+                and self.same_dimensions(old)
+                and self.same_measures(old)
+                and self.same_config(old)
+                and self.same_primary_entity(old)
+                and self.same_group(old)
+                and True
         )
 
 
@@ -1533,10 +1533,10 @@ class SavedQuery(NodeInfoMixin, GraphNode, SavedQueryResource):
         # exports should be in the same order, so we zip them for easy iteration
         for (old_export, new_export) in zip(old.exports, self.exports):
             if not (
-                old_export.name == new_export.name
-                and old_export.config.export_as == new_export.config.export_as
-                and old_export.config.schema_name == new_export.config.schema_name
-                and old_export.config.alias == new_export.config.alias
+                    old_export.name == new_export.name
+                    and old_export.config.export_as == new_export.config.export_as
+                    and old_export.config.schema_name == new_export.config.schema_name
+                    and old_export.config.alias == new_export.config.alias
             ):
                 return False
 
@@ -1549,22 +1549,14 @@ class SavedQuery(NodeInfoMixin, GraphNode, SavedQueryResource):
             return True
 
         return (
-            self.same_metrics(old)
-            and self.same_group_by(old)
-            and self.same_description(old)
-            and self.same_where(old)
-            and self.same_label(old)
-            and self.same_config(old)
-            and self.same_group(old)
-            and True
-        )
-
-    @property
-    def primary_entity_reference(self) -> Optional[EntityReference]:
-        return (
-            EntityReference(element_name=self.primary_entity)
-            if self.primary_entity is not None
-            else None
+                self.same_metrics(old)
+                and self.same_group_by(old)
+                and self.same_description(old)
+                and self.same_where(old)
+                and self.same_label(old)
+                and self.same_config(old)
+                and self.same_group(old)
+                and True
         )
 
 

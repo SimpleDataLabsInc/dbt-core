@@ -59,7 +59,7 @@ def createMacro(macroName, macroContent, macroPath, packageName='prophecy_packag
 def getTemplateAsModule(macroName, retVal):
     return get_template(f'''
          {{{{ {macroName}() }}}}
-         ''', retVal, capture_macros=False).module
+         ''', retVal, capture_macros=False).make_module(dict())
 
 
 def inject_plugin(plugin):
@@ -219,13 +219,13 @@ profile_cfg = {
 # Kish - TODO : This config can use uniqueID in future, when Program Builder comes
 config = config_from_parts_or_dicts(project_cfg, profile_cfg)
 from dbt.adapters.postgres import Plugin as PostgresPlugin
-
-inject_adapter(PostgresPlugin.adapter(config), PostgresPlugin)
+from multiprocessing import get_context
+inject_adapter(PostgresPlugin.adapter(config, get_context("spawn")), PostgresPlugin)
 
 snowflake_config = config_from_parts_or_dicts(project_cfg, snowflake_profile_cfg)
 from dbt.adapters.snowflake import Plugin as SnowFlakePlugin
 
-inject_adapter(SnowFlakePlugin.adapter(snowflake_config), SnowFlakePlugin)
+inject_adapter(SnowFlakePlugin.adapter(snowflake_config, get_context("spawn")), SnowFlakePlugin)
 
 from dbt.adapters.factory import get_adapter
 
@@ -424,7 +424,7 @@ def dbtResolverFunctionName(query: str):
 
     from dbt.clients.jinja import get_template
 
-    return get_template(query, ret, capture_macros=False).module
+    return get_template(query, ret, capture_macros=False).make_module(dict())
 
 
 if __name__ == '__main__':
