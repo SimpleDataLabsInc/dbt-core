@@ -1,5 +1,19 @@
 import os
 
+fabric_config_dBdslCM4 = {
+    'outputs': {
+        'test': {
+            'method': 'service-account',
+            'project': 'prophecy-development',
+            'keyfile': '/tmp/dbt-project-dBdslCM4/key.json',
+            'dataset': 'dataset',
+            'type': 'bigquery',
+            'threads': 1
+        }
+    },
+    'target': 'test'
+}
+
 os.environ["DBT_PROFILES_DIR"] = "/Users/kishore/prophecy-git/dbt-core/dummy_profiles/dbt_profiles/"
 projectPath = "/tmp/dummy_dbt/"
 
@@ -327,6 +341,64 @@ def injectMacroFuncName():
     return 123
 
 
+def injectSurrogateMainFuncName():
+    macroName = "generate_surrogate_key"
+    macroContent = r"""{% macro generate_surrogate_key(field_list) %}
+    {{ return(adapter.dispatch('generate_surrogate_key', 'dbt_utils')(field_list)) }}
+    {% endmacro %}
+    """
+
+    macro = createMacro(macroName, macroContent, "", "dbt_utils")
+    compile_macro_root = f'dbt_utils.{macroName}'
+
+    global macrosSpecificToActor
+    macrosSpecificToActor[compile_macro_root] = macro
+
+    return 123
+
+
+def injectSurrogateFuncName():
+    injectSurrogateMainFuncName()
+    macroName = 'default__generate_surrogate_key'
+    macroContent = r"""{% macro default__generate_surrogate_key(field_list) %}
+{% if  var('surrogate_key_treat_nulls_as_empty_strings', False)  %}
+  {% set default_null_value = "" %}
+   
+{% else %}
+  {% set default_null_value = '_dbt_utils_surrogate_key_null_' %}
+   
+{% endif %} 
+{% set fields = [] %}
+
+{{ print("Fields present  " ~ field_list) }}
+ 
+{% for field in field_list %}
+  {%
+    do fields.append(
+      "coalesce(cast(" ~ field ~ " as " ~ dbt.type_string() ~ "), '" ~ default_null_value ~ "')"
+    )
+  %}
+   
+  {% if not loop.last %}
+    {% do fields.append("'-'") %}
+     
+  {% endif %} 
+{% if not loop.last %} , {% endif %}
+{% endfor %}
+ 
+{{ dbt.hash(dbt.concat(fields)) }}
+{% endmacro %}
+"""
+
+    macro = createMacro(macroName, macroContent, "$macroSqlPath", "dbt_utils")
+    compile_macro_root = f'dbt_utils.{macroName}'
+
+    global macrosSpecificToActor
+    macrosSpecificToActor[compile_macro_root] = macro
+
+    return 123
+
+
 def dbtResolverFunctionName(query: str):
     from dbt.context.providers import generate_parser_model_context
     from dbt.context.context_config import ContextConfig
@@ -336,6 +408,7 @@ def dbtResolverFunctionName(query: str):
                       'payment_methods': ['new_var_value_1', 'new_var_value_2']}
     localConfig.vars.vars = resolvedConfig
 
+    global macrosSpecificToActor
     manifestSpecificToInvocation.nodes['test'].package_name = configSpecificToActor.project_name
     manifestSpecificToInvocation.refs = []
     manifestSpecificToInvocation.sources = []
@@ -402,5 +475,9 @@ if __name__ == '__main__':
         updated_date="2022-04-04"
     ) }}"""
 
-    newVal = dbtResolverFunctionName(query)  # .make_module(vars={'test_var': 'test_var_value_wefe'})
+    injectSurrogateFuncName()
+    newQuery = """select *,
+{{var('v_project_dict') }} > 10 as my_time_with_alias,
+{{ dbt_utils.generate_surrogate_key(['ipc.I_PRODUCT_NAME', 'ipc.I_ITEM_ID']) }} as surr,"""
+    newVal = dbtResolverFunctionName(newQuery)  # .make_module(vars={'test_var': 'test_var_value_wefe'})
     print(newVal)
