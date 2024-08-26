@@ -155,11 +155,13 @@ def config_from_parts_or_dicts(project, profile, packages=None, selectors=None, 
         threads=None,
         vars=cli_vars
     )
-    return RuntimeConfig.from_parts(
+    rc = RuntimeConfig.from_parts(
         project=project,
         profile=profile,
         args=args
     )
+    rc.load_dependencies()
+    return rc
 
 
 snowflake_profile_cfg = {
@@ -234,6 +236,7 @@ macro_hook = adapter.connections.set_query_header
 from dbt.parser.manifest import ManifestLoader
 
 loadedMacros = ManifestLoader.load_macros(config, macro_hook)
+loadedMacros.macros.update(ManifestLoader.load_macros(snowflake_config, macro_hook).macros)
 
 # We can add our custom macros in here
 customMacros = {}

@@ -1,5 +1,7 @@
 import os
 
+from dbt.artifacts.resources.v1.config import NodeAndTestConfig
+from dbt.artifacts.resources.v1.snapshot import SnapshotConfig
 from dbt.parser import SnapshotParser
 
 os.environ["DBT_PROFILES_DIR"] = "/Users/kishore/prophecy-git/dbt-core/dummy_profiles/dbt_profiles/"
@@ -157,11 +159,13 @@ def config_from_parts_or_dicts(project, profile, packages=None, selectors=None, 
         threads=None,
         vars=cli_vars
     )
-    return RuntimeConfig.from_parts(
+    rc = RuntimeConfig.from_parts(
         project=project,
         profile=profile,
         args=args
     )
+    rc.load_dependencies()
+    return rc
 
 
 snowflake_profile_cfg = {
@@ -222,6 +226,7 @@ profile_cfg = {
 config = config_from_parts_or_dicts(project_cfg, profile_cfg)
 from dbt.adapters.postgres import Plugin as PostgresPlugin
 from multiprocessing import get_context
+
 inject_adapter(PostgresPlugin.adapter(config, get_context("spawn")), PostgresPlugin)
 
 snowflake_config = config_from_parts_or_dicts(project_cfg, snowflake_profile_cfg)
@@ -236,6 +241,7 @@ macro_hook = adapter.connections.set_query_header
 from dbt.parser.manifest import ManifestLoader
 
 loadedMacros = ManifestLoader.load_macros(config, macro_hook)
+loadedMacros.macros.update(ManifestLoader.load_macros(snowflake_config, macro_hook).macros)
 
 # We can add our custom macros in here
 customMacros = {}
@@ -343,7 +349,8 @@ def injectMacroFuncName():
     return 123
 
 
-def dbtResolverFunctionName(query: str):
+from typing import Type
+def dbtResolverFunctionName(query: str, additionalConfig: Type[NodeAndTestConfig]):
     from dbt.context.providers import generate_parser_model_context
     from dbt.context.context_config import ContextConfig
 
@@ -356,8 +363,13 @@ def dbtResolverFunctionName(query: str):
     manifestSpecificToInvocation.refs = []
     manifestSpecificToInvocation.sources = []
     manifestSpecificToInvocation.macros.update(macrosSpecificToActor)
+    newModelNode = copy.deepcopy(manifestSpecificToInvocation.nodes['test'])
 
-    ret = generate_parser_model_context(manifestSpecificToInvocation.nodes['test'], localConfig,
+    # Set the config as Snapshot config
+    if additionalConfig is not None:
+        newModelNode.config = additionalConfig
+
+    ret = generate_parser_model_context(newModelNode, localConfig,
                                         manifestSpecificToInvocation, ContextConfig(
             localConfig,
             manifestSpecificToInvocation.nodes['test'].fqn,
@@ -367,59 +379,180 @@ def dbtResolverFunctionName(query: str):
 
     from dbt.clients.jinja import get_template
 
+    # We're explicitly replacing the ParseConfigObject with SnapshotConfig as We're using a patched version of snapshot to get the SQL out.
+    # Like {%- set config = model['config'] -%} this is not being done, so we're not truly running the original config.
+    if additionalConfig is not None:
+        ret['config'] = additionalConfig
+
     return get_template(query, ret, capture_macros=False).make_module(dict())
 
 
 if __name__ == '__main__':
     # injectMacroFuncName()
-    query = """
-{% snapshot orders %}
-    {{ config(
-        target_database=database,
-        target_schema=schema,
-        unique_key='id',
-        strategy='timestamp',
-        updated_at='updated_at',
-        invalidate_hard_deletes=True,
-    ) }}
-    select * from {{ ref('fact') }}
-{% endsnapshot %}
-"""
+#     query = """
+#
+#     {{ config(
+#         target_database=database,
+#         target_schema=schema,
+#         unique_key='id',
+#         strategy='timestamp',
+#         updated_at='updated_at',
+#         invalidate_hard_deletes=True,
+#         materialization="snapshot",
+#     ) }}
+#     select * from {{ ref('fact') }}
+#
+# """
+#
+#     parser = SnapshotParser(
+#         project=snowflake_config,
+#         manifest=manifestSpecificToInvocation,
+#         root_project=snowflake_config
+#     )
+#
+#
+#     def file_block_for(data: str, filename: str, searched: str):
+#         root_dir = get_abs_os_path("./dbt_packages/snowplow")
+#         filename = normalize(filename)
+#         path = FilePath(
+#             searched_path=searched,
+#             relative_path=filename,
+#             project_root=root_dir,
+#             modification_time=0.0,
+#         )
+#         sf_cls = SchemaSourceFile if filename.endswith(".yml") else SourceFile
+#         source_file = sf_cls(
+#             path=path,
+#             checksum=FileHash.from_contents(data),
+#             project_name="snowplow",
+#         )
+#         source_file.contents = data
+#         from dbt.parser.search import FileBlock
+#         return FileBlock(file=source_file)
+#
+#
+#     block = file_block_for(query, "nested/snap_1.sql", "models")
+#     parser.manifest.files[block.file.file_id] = block.file
+#     parser.parse_file(block)
+#
+#     node = list(parser.manifest.nodes.values())[0]
+#     print(node)
 
-    parser = SnapshotParser(
-        project=snowflake_config,
-        manifest=manifestSpecificToInvocation,
-        root_project=snowflake_config
-    )
+    config = SnapshotConfig.from_dict({
+        'enabled': True,
+        'persist_docs': {},
+        'post-hook': [],
+        'pre-hook': [],
+        'vars': {},
+        'quoting': {},
+        'column_types': {},
+        'tags': [],
+        "strategy": "timestamp",
+        "target_schema": "kishore",
+        "unique_key": "fn",
+        "updated_at": "sal"
+    })
+
+    # The Jinja2 template string
+    jinja2_template = '''{{ {"avx":"a" "b" "c" + 1 ~ "def" ~ true}}}'''
+
+    def jinja_to_python_dict(jinja_dict_str):
+        """Converts a Jinja2 dictionary string to a Python dictionary with appropriate types.
+
+        Args:
+            jinja_dict_str (str): The Jinja2 dictionary string.
+
+        Returns:
+            dict: The converted Python dictionary.
+        """
+
+        import jinja2
+        # Create a Jinja2 environment for rendering
+        env = jinja2.Environment()
+
+        # Render the Jinja2 dictionary string
+        rendered_dict_str = env.from_string(jinja_dict_str).render()
+
+        # Load the rendered string as a Python dictionary
+        python_dict = eval(rendered_dict_str)
+
+        return python_dict
+
+    # Example usage
+    jinja_dict_str = """{{ {"avx":"a" "b" "c" + 1 ~ "def" ~ true, "mybal": true} }}"""
+
+    python_dict = SnapshotConfig.from_dict(jinja_to_python_dict(jinja_dict_str))
+    print(python_dict)
+
+    # newVal = dbtResolverFunctionName(query)  # .make_module(vars={'test_var': 'test_var_value_wefe'})
+
+    # print(f"This is a test message", flush=True)
+    # Doing this deepcopy inside the func intermittently gives BrokenPipe error for some reason,
+    # and sometimes it just gets stuck
+    manifest_y5q4s8ew = copy.deepcopy(manifest)
+
+    def dbt_resolver_y5q4s8ew(query: str, additionalConfig: Type[NodeAndTestConfig] = None):
+        # print("Inside function resolver", flush=True)
+        # print(query, flush=True)
+        # print("Done printing additional configuration", flush=True)
+        import json
+        from dbt.context.providers import generate_parser_model_context
+        from dbt.context.context_config import ContextConfig
+
+        localConfig = copy.deepcopy(configSpecificToActor)
+        localConfig.vars.vars = {}
+
+        manifest_y5q4s8ew.nodes['test'].package_name = configSpecificToActor.project_name
+        manifest_y5q4s8ew.refs = []
+        manifest_y5q4s8ew.sources = []
+        manifest_y5q4s8ew.macros.update(macrosSpecificToActor)
+        newModelNode = copy.deepcopy(manifest_y5q4s8ew.nodes['test'])
 
 
-    def file_block_for(data: str, filename: str, searched: str):
-        root_dir = get_abs_os_path("./dbt_packages/snowplow")
-        filename = normalize(filename)
-        path = FilePath(
-            searched_path=searched,
-            relative_path=filename,
-            project_root=root_dir,
-            modification_time=0.0,
-        )
-        sf_cls = SchemaSourceFile if filename.endswith(".yml") else SourceFile
-        source_file = sf_cls(
-            path=path,
-            checksum=FileHash.from_contents(data),
-            project_name="snowplow",
-        )
-        source_file.contents = data
-        from dbt.parser.search import FileBlock
-        return FileBlock(file=source_file)
+        additionalConfig = SnapshotConfig.from_dict(jinja_to_python_dict("""{{ {    
+    "check_cols": ["STATUS"],
+    "strategy": 'check',
+    "target_schema": "public",
+    "unique_key": "ID"
+  } }}"""))
 
-    block = file_block_for(query, "nested/snap_1.sql", "models")
-    parser.manifest.files[block.file.file_id] = block.file
-    parser.parse_file(block)
+        # Set the config as SnapshotConfig or any passed config
+        if additionalConfig is not None:
+            newModelNode.config = additionalConfig
 
-    node = list(parser.manifest.nodes.values())[0]
-    print(node)
+        ret = generate_parser_model_context(newModelNode, localConfig, manifest_y5q4s8ew, ContextConfig(
+            localConfig,
+            manifest_y5q4s8ew.nodes['test'].fqn,
+            manifest_y5q4s8ew.nodes['test'].resource_type,
+            "root",
+        ))
 
-    print(dbtResolverFunctionName("select * from dual"))
+        from dbt.clients.jinja import get_template
 
-    newVal = dbtResolverFunctionName(query)  # .make_module(vars={'test_var': 'test_var_value_wefe'})
+        # We're explicitly replacing the ParseConfigObject with SnapshotConfig/User defined config as We're using a patched version of snapshot to get the SQL out.
+        # Like {%- set config = model['config'] -%} this is not being done, so we're not truly running the original config.
+        if additionalConfig is not None:
+            ret['config'] = additionalConfig
+
+        return get_template(query, ret, capture_macros = False).make_module(dict())
+
+    newVal = dbt_resolver_y5q4s8ew(r"""{# Code taken from dbt-adapters repo - dbt/include/global_project/macros/materializations/snapshots/snapshot.sql #}
+{# {% set target_relation_exists, target_relation = get_or_create_relation(
+    database = 'prophecy_db',
+    schema = 'prophecy_schema',
+    identifier = 'prophecy_identifier',
+    type = 'table') -%} #}
+{%- set strategy_name = config.get('strategy') -%}
+{{ config}}
+{{ strategy_name }}
+{% set strategy_macro = strategy_dispatch(strategy_name) %}
+{# We're settings target_relation_exists so that we don't have to query DB #}
+{% set target_relation_exists = False %}
+{% set strategy = strategy_macro(model, "snapshotted_data", "source_data", config, target_relation_exists) %}
+{% set query = "\nSELECT *\n\nFROM Reformat_1\n" %}
+{% set build_sql = build_snapshot_table(strategy, query) %}
+{#   {% set final_sql = create_table_as(False, target_relation, build_sql) %} #}
+{#   {{ snapshot_staging_table(strategy, "test", target_relation) }}  #}
+{{ build_sql}}""")
     print(newVal)
+    print("Done")

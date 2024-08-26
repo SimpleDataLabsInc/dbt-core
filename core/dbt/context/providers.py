@@ -148,6 +148,8 @@ class BaseDatabaseWrapper:
             macro_search_order = self._adapter.config.get_macro_search_order(namespace)
             if macro_search_order:
                 search_packages = macro_search_order
+            elif not macro_search_order and namespace in self._adapter.config.dependencies:
+                search_packages = [self.config.project_name, namespace]
             # This line is patched, so that we pick up search path as current package name - <PATCHED LINE>
             else:
                 search_packages = [self.config.project_name, namespace]
