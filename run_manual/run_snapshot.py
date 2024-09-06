@@ -28,7 +28,7 @@ from dbt.contracts.graph.model_config import NodeConfig
 from dbt.config.project import PartialProject
 from dbt.contracts.graph.nodes import Macro, ModelNode, SnapshotNode
 from dbt.node_types import NodeType
-from typing import Dict
+from typing import Dict, Type
 
 
 def createMacro(macroName, macroContent, macroPath, packageName='prophecy_package'):
@@ -187,6 +187,19 @@ snowflake_profile_cfg = {
     'target': 'test'
 }
 
+bigquery_profile_cfg = {
+    'outputs': {
+        'test': {
+        'method': 'service-account',
+        'project': 'prophecy-development',
+        'keyfile': '/Users/kishore/Downloads/google-bigquery-new.json',
+        'dataset': 'dataset',
+        'type': 'bigquery',
+        'threads': 1
+        }
+    },
+    'target': 'test'
+}
 model_config = NodeConfig.from_dict({
     'enabled': True,
     'materialized': 'view',
@@ -234,6 +247,11 @@ from dbt.adapters.snowflake import Plugin as SnowFlakePlugin
 
 inject_adapter(SnowFlakePlugin.adapter(snowflake_config, get_context("spawn")), SnowFlakePlugin)
 
+bigquery_config = config_from_parts_or_dicts(project_cfg, bigquery_profile_cfg)
+from dbt.adapters.bigquery import Plugin as BigQueryPlugin
+
+inject_adapter(BigQueryPlugin.adapter(bigquery_config, get_context("spawn")), BigQueryPlugin)
+
 from dbt.adapters.factory import get_adapter
 
 adapter = get_adapter(config)
@@ -242,6 +260,7 @@ from dbt.parser.manifest import ManifestLoader
 
 loadedMacros = ManifestLoader.load_macros(config, macro_hook)
 loadedMacros.macros.update(ManifestLoader.load_macros(snowflake_config, macro_hook).macros)
+loadedMacros.macros.update(ManifestLoader.load_macros(bigquery_config, macro_hook).macros)
 
 # We can add our custom macros in here
 customMacros = {}
@@ -279,7 +298,7 @@ import copy
 
 if 'configSpecificToActor' not in globals():
     global configSpecificToActor
-    configSpecificToActor = copy.deepcopy(snowflake_config)
+    configSpecificToActor = copy.deepcopy(bigquery_config)
     configSpecificToActor.project_name = '$packageName'
     global macrosSpecificToActor
     macrosSpecificToActor = {}
@@ -348,44 +367,14 @@ def injectMacroFuncName():
 
     return 123
 
-
-from typing import Type
-def dbtResolverFunctionName(query: str, additionalConfig: Type[NodeAndTestConfig]):
-    from dbt.context.providers import generate_parser_model_context
-    from dbt.context.context_config import ContextConfig
-
-    localConfig = copy.deepcopy(configSpecificToActor)
-    resolvedConfig = {'test_var': 'test_var_value_wefefefrf',
-                      'payment_methods': ['new_var_value_1', 'new_var_value_2']}
-    localConfig.vars.vars = resolvedConfig
-
-    manifestSpecificToInvocation.nodes['test'].package_name = configSpecificToActor.project_name
-    manifestSpecificToInvocation.refs = []
-    manifestSpecificToInvocation.sources = []
-    manifestSpecificToInvocation.macros.update(macrosSpecificToActor)
-    newModelNode = copy.deepcopy(manifestSpecificToInvocation.nodes['test'])
-
-    # Set the config as Snapshot config
-    if additionalConfig is not None:
-        newModelNode.config = additionalConfig
-
-    ret = generate_parser_model_context(newModelNode, localConfig,
-                                        manifestSpecificToInvocation, ContextConfig(
-            localConfig,
-            manifestSpecificToInvocation.nodes['test'].fqn,
-            manifestSpecificToInvocation.nodes['test'].resource_type,
-            "root",
-        ))
-
-    from dbt.clients.jinja import get_template
-
-    # We're explicitly replacing the ParseConfigObject with SnapshotConfig as We're using a patched version of snapshot to get the SQL out.
-    # Like {%- set config = model['config'] -%} this is not being done, so we're not truly running the original config.
-    if additionalConfig is not None:
-        ret['config'] = additionalConfig
-
-    return get_template(query, ret, capture_macros=False).make_module(dict())
-
+if 'config_prClNeOf' not in globals():
+    global config_prClNeOf
+    config_prClNeOf = copy.deepcopy(bigquery_config)
+    config_prClNeOf.project_name = 'jaffle_shop'
+    global macros_prClNeOf
+    macros_prClNeOf = {}
+else:
+    print("found configSpecificToActor config_prClNeOf, using it")
 
 if __name__ == '__main__':
     # injectMacroFuncName()
@@ -508,9 +497,17 @@ if __name__ == '__main__':
         manifest_y5q4s8ew.macros.update(macrosSpecificToActor)
         newModelNode = copy.deepcopy(manifest_y5q4s8ew.nodes['test'])
 
+        additionalConfig = SnapshotConfig.from_dict(jinja_to_python_dict(r"""{{{    
+    "strategy": "timestamp",
+    "target_database": "JAFFLE_SHOP",
+    "target_schema": "SNAPSHOTS",
+    "unique_key": "order_id",
+    "updated_at": "undefined_updated_at"
+  }}}"""))
 
-        additionalConfig = SnapshotConfig.from_dict(jinja_to_python_dict("""{{ {    
+        anotherAdditionalConfig = SnapshotConfig.from_dict(jinja_to_python_dict("""{{ {    
     "check_cols": ["STATUS"],
+    "invalidate_hard_deletes": true,
     "strategy": 'check',
     "target_schema": "public",
     "unique_key": "ID"
@@ -532,6 +529,8 @@ if __name__ == '__main__':
         # We're explicitly replacing the ParseConfigObject with SnapshotConfig/User defined config as We're using a patched version of snapshot to get the SQL out.
         # Like {%- set config = model['config'] -%} this is not being done, so we're not truly running the original config.
         if additionalConfig is not None:
+            tempDictConfig = additionalConfig.__dict__
+            additionalConfig = {key: value for key, value in tempDictConfig.items() if value is not None}
             ret['config'] = additionalConfig
 
         return get_template(query, ret, capture_macros = False).make_module(dict())
@@ -543,16 +542,16 @@ if __name__ == '__main__':
     identifier = 'prophecy_identifier',
     type = 'table') -%} #}
 {%- set strategy_name = config.get('strategy') -%}
-{{ config}}
-{{ strategy_name }}
 {% set strategy_macro = strategy_dispatch(strategy_name) %}
 {# We're settings target_relation_exists so that we don't have to query DB #}
 {% set target_relation_exists = False %}
 {% set strategy = strategy_macro(model, "snapshotted_data", "source_data", config, target_relation_exists) %}
-{% set query = "\nSELECT *\n\nFROM Reformat_1\n" %}
+{% set query = "\nSELECT *\n\nFROM raw_customers" %}
 {% set build_sql = build_snapshot_table(strategy, query) %}
 {#   {% set final_sql = create_table_as(False, target_relation, build_sql) %} #}
 {#   {{ snapshot_staging_table(strategy, "test", target_relation) }}  #}
 {{ build_sql}}""")
     print(newVal)
+    print("value df")
+    print(dbt_resolver_y5q4s8ew("{{config}}"))
     print("Done")
