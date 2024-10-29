@@ -264,6 +264,9 @@ loadedMacros.macros.update(ManifestLoader.load_macros(bigquery_config, macro_hoo
 # We can add our custom macros in here
 customMacros = {}
 
+import threading
+globalLock = threading.Lock()
+
 manifest = Manifest(
     macros={**loadedMacros.macros, **customMacros},
     nodes={
@@ -286,7 +289,7 @@ manifest = Manifest(
     },
     sources={},
     docs={},
-    disabled=[],
+    disabled={},
     files={},
     exposures={},
     metrics={},
@@ -303,7 +306,10 @@ if 'configSpecificToActor' not in globals():
     macrosSpecificToActor = {}
 else:
     print("found configSpecificToActor configSpecificToActor, using it")
-manifestSpecificToInvocation = copy.deepcopy(manifest)
+
+manifestSpecificToInvocation = None
+with globalLock:
+    manifestSpecificToInvocation = manifest.deepcopy()
 
 
 def injectMacroFuncName():
@@ -480,7 +486,10 @@ if __name__ == '__main__':
     # print(f"This is a test message", flush=True)
     # Doing this deepcopy inside the func intermittently gives BrokenPipe error for some reason,
     # and sometimes it just gets stuck
-    manifest_y5q4s8ew = copy.deepcopy(manifest)
+
+    manifest_y5q4s8ew = None
+    with globalLock:
+        manifest_y5q4s8ew = manifest.deepcopy()
 
 
     def dbt_resolver_y5q4s8ew(query: str, additionalConfig: Type[NodeAndTestConfig] = None):
